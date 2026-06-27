@@ -1,0 +1,6 @@
+@Kredar.API_HostAddress = http://localhost:5250
+
+GET {{Kredar.API_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
