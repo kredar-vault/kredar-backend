@@ -2,6 +2,7 @@ using System.Text;
 using Kredar.API.Auth;
 using Kredar.API.Common;
 using Kredar.API.Config;
+using Kredar.API.Customers;
 using Kredar.API.Data;
 using Kredar.API.Tenants;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -18,6 +19,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 // Settings
 builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("JwtSettings"));
 builder.Services.Configure<NombaSettings>(builder.Configuration.GetSection("NombaSettings"));
+builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
 
 // JWT Authentication
 var jwtSettings = builder.Configuration.GetSection("JwtSettings").Get<JwtSettings>()!;
@@ -40,8 +42,13 @@ builder.Services.AddAuthorization();
 
 // Services
 builder.Services.AddScoped<TenantRepository>();
+builder.Services.AddScoped<TenantService>();
+builder.Services.AddScoped<RefreshTokenRepository>();
 builder.Services.AddScoped<JwtService>();
+builder.Services.AddScoped<EmailService>();
 builder.Services.AddScoped<AuthService>();
+builder.Services.AddScoped<CustomerRepository>();
+builder.Services.AddScoped<CustomerService>();
 
 // Exception handler
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
