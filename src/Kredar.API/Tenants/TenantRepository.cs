@@ -16,4 +16,13 @@ public class TenantRepository(AppDbContext db)
         await db.Tenants.AddAsync(tenant);
         await db.SaveChangesAsync();
     }
+
+    public async Task<Tenant?> FindByVerificationTokenAsync(string token) =>
+        await db.Tenants.FirstOrDefaultAsync(t => t.EmailVerificationToken == token);
+
+    public async Task UpdateAsync(Tenant tenant)
+    {
+        db.Tenants.Update(tenant);
+        await db.SaveChangesAsync();
+    }
 }
