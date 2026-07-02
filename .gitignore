@@ -30,3 +30,6 @@ Thumbs.db
 # Logs
 *.log
 logs/
+
+# Docs
+PROJECT_STRUCTURE.md
