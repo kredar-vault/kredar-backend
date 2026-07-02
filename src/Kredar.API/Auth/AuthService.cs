@@ -19,14 +19,14 @@ public class AuthService(TenantRepository tenantRepo, JwtService jwtService, Ema
         var tenant = new Tenant
         {
             Email = request.Email,
-            PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password),
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password, workFactor: 10),
             IsVerified = false,
             EmailVerificationToken = verificationToken,
             EmailVerificationTokenExpiry = DateTime.UtcNow.AddHours(24)
         };
 
         await tenantRepo.AddAsync(tenant);
-        await emailService.SendVerificationEmailAsync(tenant.Email, verificationToken);
+        _ = emailService.SendVerificationEmailAsync(tenant.Email, verificationToken);
 
         return new RegisterResponse
         {
@@ -65,11 +65,11 @@ public class AuthService(TenantRepository tenantRepo, JwtService jwtService, Ema
 
         var otp = Random.Shared.Next(100000, 999999).ToString();
 
-        tenant.LoginOtp = BCrypt.Net.BCrypt.HashPassword(otp);
+        tenant.LoginOtp = otp;
         tenant.LoginOtpExpiry = DateTime.UtcNow.AddMinutes(10);
         await tenantRepo.UpdateAsync(tenant);
 
-        await emailService.SendLoginOtpEmailAsync(tenant.Email, otp);
+        _ = emailService.SendLoginOtpEmailAsync(tenant.Email, otp);
 
         return "A 6-digit code has been sent to your email.";
     }
@@ -82,7 +82,7 @@ public class AuthService(TenantRepository tenantRepo, JwtService jwtService, Ema
         if (tenant.LoginOtp == null || tenant.LoginOtpExpiry < DateTime.UtcNow)
             throw new Exception("Code has expired. Please log in again.");
 
-        if (!BCrypt.Net.BCrypt.Verify(request.Otp, tenant.LoginOtp))
+        if (tenant.LoginOtp != request.Otp)
             throw new Exception("Invalid code. Please try again.");
 
         tenant.LoginOtp = null;
