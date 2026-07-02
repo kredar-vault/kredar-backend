@@ -17,6 +17,22 @@ public class CustomerService(CustomerRepository customerRepo)
         InactiveCustomers = await customerRepo.CountByStatusAsync(tenantId, CustomerStatus.Inactive)
     };
 
+    public async Task<CustomerResponse> GetByIdAsync(Guid tenantId, Guid customerId)
+    {
+        var customer = await customerRepo.FindByIdAsync(tenantId, customerId)
+            ?? throw new KeyNotFoundException("Customer not found.");
+        return MapToResponse(customer);
+    }
+
+    public async Task<CustomerResponse> UpdateStatusAsync(Guid tenantId, Guid customerId, CustomerStatus newStatus)
+    {
+        var customer = await customerRepo.FindByIdAsync(tenantId, customerId)
+            ?? throw new KeyNotFoundException("Customer not found.");
+        customer.Status = newStatus;
+        await customerRepo.UpdateAsync(customer);
+        return MapToResponse(customer);
+    }
+
     public async Task<CustomerResponse> CreateAsync(Guid tenantId, CreateCustomerRequest request)
     {
         var exists = await customerRepo.FindByEmailAsync(tenantId, request.Email);

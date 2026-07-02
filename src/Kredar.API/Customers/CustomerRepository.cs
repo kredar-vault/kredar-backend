@@ -31,6 +31,12 @@ public class CustomerRepository(AppDbContext db)
         await db.SaveChangesAsync();
     }
 
+    public async Task UpdateAsync(Customer customer)
+    {
+        db.Customers.Update(customer);
+        await db.SaveChangesAsync();
+    }
+
     public async Task<int> CountAsync(Guid tenantId) =>
         await db.Customers.CountAsync(c => c.TenantId == tenantId);
 

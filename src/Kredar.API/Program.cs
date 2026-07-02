@@ -4,11 +4,15 @@ using Kredar.API.Common;
 using Kredar.API.Config;
 using Kredar.API.Customers;
 using Kredar.API.Data;
+using Kredar.API.Team;
 using Kredar.API.Tenants;
+using Kredar.API.Transactions;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+
+DotNetEnv.Env.TraversePath().Load();
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -40,6 +44,20 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 builder.Services.AddAuthorization();
 
+// CORS
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowFrontend", policy =>
+    {
+        policy.WithOrigins(
+                "http://localhost:3000",
+                "https://localhost:3000"
+            )
+            .AllowAnyHeader()
+            .AllowAnyMethod();
+    });
+});
+
 // Services
 builder.Services.AddScoped<TenantRepository>();
 builder.Services.AddScoped<TenantService>();
@@ -49,10 +67,19 @@ builder.Services.AddScoped<EmailService>();
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<CustomerRepository>();
 builder.Services.AddScoped<CustomerService>();
+builder.Services.AddScoped<KycRepository>();
+builder.Services.AddScoped<KycService>();
+builder.Services.AddScoped<TransactionRepository>();
+builder.Services.AddScoped<TransactionService>();
+builder.Services.AddScoped<TeamRepository>();
+builder.Services.AddScoped<TeamService>();
 
 // Exception handler
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddProblemDetails();
+
+// Health check
+builder.Services.AddHealthChecks();
 
 // Controllers
 builder.Services.AddControllers();
@@ -90,6 +117,7 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.UseExceptionHandler();
+app.UseCors("AllowFrontend");
 app.UseSwagger();
 app.UseSwaggerUI();
 app.UseAuthentication();

@@ -42,6 +42,23 @@ public class CustomerController(CustomerService customerService) : ControllerBas
         return Ok(ApiResponse<CustomerStatsResponse>.Success(stats));
     }
 
+    [HttpGet("{id:guid}")]
+    public async Task<IActionResult> GetById(Guid id)
+    {
+        var tenantId = TenantContext.GetTenantId(HttpContext);
+        var customer = await customerService.GetByIdAsync(tenantId, id);
+        return Ok(ApiResponse<CustomerResponse>.Success(customer));
+    }
+
+    [HttpPatch("{id:guid}/status")]
+    public async Task<IActionResult> UpdateStatus(Guid id, [FromBody] UpdateCustomerStatusRequest request)
+    {
+        var tenantId = TenantContext.GetTenantId(HttpContext);
+        var status = Enum.Parse<CustomerStatus>(request.Status);
+        var customer = await customerService.UpdateStatusAsync(tenantId, id, status);
+        return Ok(ApiResponse<CustomerResponse>.Success(customer, "Customer status updated."));
+    }
+
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreateCustomerRequest request)
     {
