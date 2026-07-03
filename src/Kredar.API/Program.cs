@@ -5,9 +5,12 @@ using Kredar.API.Common;
 using Kredar.API.Config;
 using Kredar.API.Customers;
 using Kredar.API.Data;
+using Kredar.API.DedicatedAccounts;
+using Kredar.API.Nomba;
 using Kredar.API.Team;
 using Kredar.API.Tenants;
 using Kredar.API.Transactions;
+using Kredar.API.Webhooks;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -65,21 +68,57 @@ builder.Services.AddResend(options =>
     options.ApiToken = builder.Configuration["EmailSettings:ApiKey"] ?? "";
 });
 
-// Services
+// HTTP clients
+var nombaSettings = builder.Configuration.GetSection("NombaSettings").Get<NombaSettings>();
+builder.Services.AddHttpClient("nomba", c =>
+{
+    var baseUrl = nombaSettings?.BaseUrl ?? "https://api.nomba.com/v1/";
+    if (!baseUrl.EndsWith('/')) baseUrl += "/";
+    c.BaseAddress = new Uri(baseUrl);
+    c.Timeout = TimeSpan.FromSeconds(30);
+});
+builder.Services.AddHttpClient("outbound-webhook", c =>
+{
+    c.Timeout = TimeSpan.FromSeconds(15);
+});
+
+// Nomba services (singleton token provider so token is cached across requests)
+builder.Services.AddSingleton<NombaTokenProvider>();
+builder.Services.AddScoped<NombaClient>();
+builder.Services.AddScoped<NombaSignatureVerifier>();
+
+// Auth services
 builder.Services.AddScoped<TenantRepository>();
 builder.Services.AddScoped<TenantService>();
 builder.Services.AddScoped<RefreshTokenRepository>();
 builder.Services.AddScoped<JwtService>();
 builder.Services.AddScoped<EmailService>();
 builder.Services.AddScoped<AuthService>();
+
+// Customer services
 builder.Services.AddScoped<CustomerRepository>();
 builder.Services.AddScoped<CustomerService>();
 builder.Services.AddScoped<KycRepository>();
 builder.Services.AddScoped<KycService>();
+
+// Transaction services
 builder.Services.AddScoped<TransactionRepository>();
 builder.Services.AddScoped<TransactionService>();
+
+// Team services
 builder.Services.AddScoped<TeamRepository>();
 builder.Services.AddScoped<TeamService>();
+
+// Dedicated account services
+builder.Services.AddScoped<DedicatedAccountRepository>();
+builder.Services.AddScoped<DedicatedAccountService>();
+
+// Webhook services
+builder.Services.AddScoped<WebhookEndpointRepository>();
+builder.Services.AddScoped<WebhookDeliveryRepository>();
+builder.Services.AddScoped<WebhookEndpointService>();
+builder.Services.AddScoped<NombaWebhookService>();
+builder.Services.AddHostedService<WebhookDeliveryWorker>();
 
 // Exception handler
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();

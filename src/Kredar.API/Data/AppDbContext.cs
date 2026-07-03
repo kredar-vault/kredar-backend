@@ -1,8 +1,10 @@
 using Kredar.API.Auth;
 using Kredar.API.Customers;
+using Kredar.API.DedicatedAccounts;
 using Kredar.API.Team;
 using Kredar.API.Tenants;
 using Kredar.API.Transactions;
+using Kredar.API.Webhooks;
 using Microsoft.EntityFrameworkCore;
 
 namespace Kredar.API.Data;
@@ -15,6 +17,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<CustomerKycDocument> CustomerKycDocuments => Set<CustomerKycDocument>();
     public DbSet<Transaction> Transactions => Set<Transaction>();
     public DbSet<TeamMember> TeamMembers => Set<TeamMember>();
+    public DbSet<DedicatedAccount> DedicatedAccounts => Set<DedicatedAccount>();
+    public DbSet<WebhookEndpoint> WebhookEndpoints => Set<WebhookEndpoint>();
+    public DbSet<WebhookDelivery> WebhookDeliveries => Set<WebhookDelivery>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -62,6 +67,31 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.HasKey(t => t.Id);
             e.HasIndex(t => new { t.TenantId, t.Email }).IsUnique();
             e.Property(t => t.Role).HasConversion<string>();
+        });
+
+        modelBuilder.Entity<DedicatedAccount>(e =>
+        {
+            e.HasKey(a => a.Id);
+            e.HasIndex(a => a.AccountNumber).IsUnique();
+            e.HasIndex(a => new { a.TenantId, a.Reference }).IsUnique();
+            e.Property(a => a.Status).HasConversion<string>();
+            e.Property(a => a.PaymentState).HasConversion<string>();
+            e.Property(a => a.AmountPaid).HasPrecision(18, 2);
+            e.Property(a => a.ExpectedAmount).HasPrecision(18, 2);
+        });
+
+        modelBuilder.Entity<WebhookEndpoint>(e =>
+        {
+            e.HasKey(ep => ep.Id);
+            e.Property(ep => ep.Url).HasMaxLength(2048);
+            e.Property(ep => ep.SigningSecret).HasMaxLength(128);
+        });
+
+        modelBuilder.Entity<WebhookDelivery>(e =>
+        {
+            e.HasKey(d => d.Id);
+            e.Property(d => d.Status).HasConversion<string>();
+            e.HasIndex(d => new { d.Status, d.NextAttemptAt });
         });
     }
 }
