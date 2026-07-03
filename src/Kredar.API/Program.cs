@@ -1,5 +1,6 @@
 using System.Text;
 using Kredar.API.Auth;
+using Resend;
 using Kredar.API.Common;
 using Kredar.API.Config;
 using Kredar.API.Customers;
@@ -56,6 +57,12 @@ builder.Services.AddCors(options =>
             .AllowAnyHeader()
             .AllowAnyMethod();
     });
+});
+
+// Resend email
+builder.Services.AddResend(options =>
+{
+    options.ApiToken = builder.Configuration["EmailSettings:ApiKey"] ?? "";
 });
 
 // Services
