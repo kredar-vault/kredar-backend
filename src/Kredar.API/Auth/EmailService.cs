@@ -1,12 +1,10 @@
 using Kredar.API.Config;
-using MailKit.Net.Smtp;
-using MailKit.Security;
 using Microsoft.Extensions.Options;
-using MimeKit;
+using Resend;
 
 namespace Kredar.API.Auth;
 
-public class EmailService(IOptions<EmailSettings> emailOptions, IConfiguration config)
+public class EmailService(IResend resend, IOptions<EmailSettings> emailOptions, IConfiguration config)
 {
     private readonly EmailSettings _email = emailOptions.Value;
     private readonly string _baseUrl = config["AppSettings:BaseUrl"] ?? "http://localhost:8080";
@@ -15,14 +13,12 @@ public class EmailService(IOptions<EmailSettings> emailOptions, IConfiguration c
     {
         var verificationLink = $"{_baseUrl}/api/auth/verify-email?token={token}";
 
-        var message = new MimeMessage();
-        message.From.Add(new MailboxAddress(_email.FromName, _email.FromEmail));
-        message.To.Add(new MailboxAddress("", toEmail));
-        message.Subject = "Verify your Kredar email";
-
-        message.Body = new TextPart("html")
+        var message = new EmailMessage
         {
-            Text = $"""
+            From = $"{_email.FromName} <{_email.FromEmail}>",
+            To = [toEmail],
+            Subject = "Verify your Kredar email",
+            HtmlBody = $"""
                 <h2>Welcome to Kredar</h2>
                 <p>Click the button below to verify your email address.</p>
                 <a href="{verificationLink}"
@@ -34,23 +30,17 @@ public class EmailService(IOptions<EmailSettings> emailOptions, IConfiguration c
             """
         };
 
-        using var client = new SmtpClient();
-        await client.ConnectAsync(_email.Host, _email.Port, SecureSocketOptions.StartTls);
-        await client.AuthenticateAsync(_email.Username, _email.Password);
-        await client.SendAsync(message);
-        await client.DisconnectAsync(true);
+        await resend.EmailSendAsync(message);
     }
 
     public async Task SendLoginOtpEmailAsync(string toEmail, string otp)
     {
-        var message = new MimeMessage();
-        message.From.Add(new MailboxAddress(_email.FromName, _email.FromEmail));
-        message.To.Add(new MailboxAddress("", toEmail));
-        message.Subject = "Your Kredar login code";
-
-        message.Body = new TextPart("html")
+        var message = new EmailMessage
         {
-            Text = $"""
+            From = $"{_email.FromName} <{_email.FromEmail}>",
+            To = [toEmail],
+            Subject = "Your Kredar login code",
+            HtmlBody = $"""
                 <h2>Your login code</h2>
                 <p>Use the code below to complete your sign in.</p>
                 <div style="font-size:36px;font-weight:bold;letter-spacing:8px;padding:20px 0;">{otp}</div>
@@ -59,10 +49,6 @@ public class EmailService(IOptions<EmailSettings> emailOptions, IConfiguration c
             """
         };
 
-        using var client = new SmtpClient();
-        await client.ConnectAsync(_email.Host, _email.Port, SecureSocketOptions.StartTls);
-        await client.AuthenticateAsync(_email.Username, _email.Password);
-        await client.SendAsync(message);
-        await client.DisconnectAsync(true);
+        await resend.EmailSendAsync(message);
     }
 }
