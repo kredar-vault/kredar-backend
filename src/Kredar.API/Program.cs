@@ -29,7 +29,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 // Settings
 builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("JwtSettings"));
 builder.Services.Configure<NombaSettings>(builder.Configuration.GetSection("NombaSettings"));
-builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
+builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("Resend"));
 
 // JWT Authentication
 var jwtSettings = builder.Configuration.GetSection("JwtSettings").Get<JwtSettings>()!;
@@ -69,7 +69,7 @@ builder.Services.AddCors(options =>
 // Resend email
 builder.Services.AddResend(options =>
 {
-    options.ApiToken = builder.Configuration["EmailSettings:ApiKey"] ?? "";
+    options.ApiToken = builder.Configuration["Resend:ApiKey"] ?? "";
 });
 
 // HTTP clients
