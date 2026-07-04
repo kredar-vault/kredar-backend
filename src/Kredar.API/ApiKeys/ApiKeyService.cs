@@ -1,15 +1,26 @@
 using Kredar.API.Common;
+using Kredar.API.Data;
+using Kredar.API.Onboarding;
+using Microsoft.EntityFrameworkCore;
 
 namespace Kredar.API.ApiKeys;
 
 public record CreatedApiKey(Guid Id, string ClientId, string ClientSecret, string Mode, string Label, DateTime CreatedAt);
 
-public class ApiKeyService(ApiKeyRepository repo)
+public class ApiKeyService(ApiKeyRepository repo, AppDbContext db)
 {
     public async Task<CreatedApiKey> CreateAsync(Guid tenantId, string label, ApiKeyMode mode)
     {
         if (string.IsNullOrWhiteSpace(label))
             throw new Exception("Key label is required.");
+
+        if (mode == ApiKeyMode.Live)
+        {
+            var onboarding = await db.OnboardingApplications
+                .FirstOrDefaultAsync(a => a.TenantId == tenantId);
+            if (onboarding?.Tier != OnboardingTier.Live)
+                throw new UnauthorizedAccessException("Live keys require KYB approval. Submit your onboarding application and wait for admin review.");
+        }
 
         var prefix = mode == ApiKeyMode.Live ? "krd_live" : "krd_test";
         var secretPrefix = mode == ApiKeyMode.Live ? "sk_live" : "sk_test";

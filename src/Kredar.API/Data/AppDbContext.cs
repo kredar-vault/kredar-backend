@@ -38,6 +38,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<SubMerchant> SubMerchants => Set<SubMerchant>();
     public DbSet<OnboardingApplication> OnboardingApplications => Set<OnboardingApplication>();
     public DbSet<AdminUser> AdminUsers => Set<AdminUser>();
+    public DbSet<AdminAuditLog> AdminAuditLogs => Set<AdminAuditLog>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -184,6 +185,12 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.HasKey(a => a.Id);
             e.HasIndex(a => a.Email).IsUnique();
             e.Property(a => a.Role).HasConversion<string>();
+        });
+
+        modelBuilder.Entity<AdminAuditLog>(e =>
+        {
+            e.HasKey(a => a.Id);
+            e.HasIndex(a => a.CreatedAt);
         });
     }
 }
