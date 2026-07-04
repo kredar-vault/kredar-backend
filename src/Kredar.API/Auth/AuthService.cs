@@ -107,6 +107,56 @@ public class AuthService(TenantRepository tenantRepo, JwtService jwtService, Ema
         };
     }
 
+    public async Task ForgotPasswordAsync(ForgotPasswordRequest request)
+    {
+        var tenant = await tenantRepo.FindByEmailAsync(request.Email);
+        if (tenant == null) return; // silent — don't reveal if email exists
+
+        var token = Guid.NewGuid().ToString("N");
+        tenant.PasswordResetToken = token;
+        tenant.PasswordResetTokenExpiry = DateTime.UtcNow.AddHours(1);
+        await tenantRepo.UpdateAsync(tenant);
+
+        _ = emailService.SendPasswordResetEmailAsync(tenant.Email, token);
+    }
+
+    public async Task<string> ResetPasswordAsync(ResetPasswordRequest request)
+    {
+        if (request.NewPassword != request.ConfirmPassword)
+            throw new Exception("Passwords do not match.");
+
+        var tenant = await tenantRepo.FindByPasswordResetTokenAsync(request.Token)
+            ?? throw new Exception("Invalid or expired reset link.");
+
+        if (tenant.PasswordResetTokenExpiry < DateTime.UtcNow)
+            throw new Exception("Reset link has expired. Please request a new one.");
+
+        tenant.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword, workFactor: 10);
+        tenant.PasswordResetToken = null;
+        tenant.PasswordResetTokenExpiry = null;
+        await tenantRepo.UpdateAsync(tenant);
+
+        return "Password reset successfully. You can now log in.";
+    }
+
+    public async Task<string> ResendVerificationAsync(string email)
+    {
+        var tenant = await tenantRepo.FindByEmailAsync(email)
+            ?? throw new Exception("Email not found.");
+
+        if (tenant.IsVerified)
+            throw new Exception("This email is already verified.");
+
+        var token = Guid.NewGuid().ToString("N");
+        tenant.EmailVerificationToken = token;
+        tenant.EmailVerificationTokenExpiry = DateTime.UtcNow.AddHours(24);
+        await tenantRepo.UpdateAsync(tenant);
+
+        _ = emailService.SendVerificationEmailAsync(tenant.Email, token);
+
+        return "Verification email resent. Please check your inbox.";
+    }
+
     public async Task<AuthResponse> RefreshAsync(RefreshRequest request)
     {
         var refreshToken = await refreshTokenRepo.FindByTokenAsync(request.RefreshToken)

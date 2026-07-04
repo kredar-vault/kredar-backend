@@ -1,20 +1,26 @@
+using System.Security.Claims;
 using System.Text;
+using Kredar.API.ApiKeys;
 using Kredar.API.Auth;
-using Resend;
+using Kredar.API.Checkout;
 using Kredar.API.Common;
 using Kredar.API.Config;
 using Kredar.API.Customers;
 using Kredar.API.Data;
 using Kredar.API.DedicatedAccounts;
 using Kredar.API.Nomba;
+using Kredar.API.Settlement;
 using Kredar.API.Team;
 using Kredar.API.Tenants;
 using Kredar.API.Transactions;
+using Kredar.API.Transfers;
+using Kredar.API.Insights;
 using Kredar.API.Webhooks;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using Resend;
 
 DotNetEnv.Env.TraversePath().Load();
 
@@ -46,11 +52,13 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     });
 
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("AdminOnly", policy =>
+        policy.RequireClaim("scope", "admin"));
+});
 
-// CORS — allowed origins are configurable so deployed environments can permit
-// the real frontend domain. Set Cors:AllowedOrigins (comma-separated) or the
-// Cors__AllowedOrigins env var; falls back to localhost for local development.
+// CORS
 var corsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
     ?? builder.Configuration["Cors:AllowedOrigins"]?.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
     ?? ["http://localhost:3000", "https://localhost:3000"];
@@ -84,7 +92,7 @@ builder.Services.AddHttpClient("outbound-webhook", c =>
     c.Timeout = TimeSpan.FromSeconds(15);
 });
 
-// Nomba services (singleton token provider so token is cached across requests)
+// Nomba services
 builder.Services.AddSingleton<NombaTokenProvider>();
 builder.Services.AddScoped<NombaClient>();
 builder.Services.AddScoped<NombaSignatureVerifier>();
@@ -115,12 +123,30 @@ builder.Services.AddScoped<TeamService>();
 builder.Services.AddScoped<DedicatedAccountRepository>();
 builder.Services.AddScoped<DedicatedAccountService>();
 
+// Transfer services
+builder.Services.AddScoped<TransferRepository>();
+builder.Services.AddScoped<TransferService>();
+
+// Insights
+builder.Services.AddScoped<InsightsService>();
+
 // Webhook services
 builder.Services.AddScoped<WebhookEndpointRepository>();
 builder.Services.AddScoped<WebhookDeliveryRepository>();
 builder.Services.AddScoped<WebhookEndpointService>();
 builder.Services.AddScoped<NombaWebhookService>();
 builder.Services.AddHostedService<WebhookDeliveryWorker>();
+
+// API Keys
+builder.Services.AddScoped<ApiKeyRepository>();
+builder.Services.AddScoped<ApiKeyService>();
+
+// Checkout
+builder.Services.AddSingleton<CheckoutEventBus>();
+builder.Services.AddScoped<CheckoutService>();
+
+// Settlement
+builder.Services.AddScoped<SettlementService>();
 
 // Exception handler
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
@@ -130,7 +156,9 @@ builder.Services.AddProblemDetails();
 builder.Services.AddHealthChecks();
 
 // Controllers
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(o =>
+        o.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter()));
 
 // Swagger
 builder.Services.AddEndpointsApiExplorer();
@@ -172,7 +200,6 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 
-// Liveness probe used by the infrastructure health check (Traefik + deploy).
 app.MapHealthChecks("/health");
 
 app.Run();
