@@ -4,6 +4,7 @@ using Kredar.API.DedicatedAccounts;
 using Kredar.API.Team;
 using Kredar.API.Tenants;
 using Kredar.API.Transactions;
+using Kredar.API.Transfers;
 using Kredar.API.Webhooks;
 using Microsoft.EntityFrameworkCore;
 
@@ -18,6 +19,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Transaction> Transactions => Set<Transaction>();
     public DbSet<TeamMember> TeamMembers => Set<TeamMember>();
     public DbSet<DedicatedAccount> DedicatedAccounts => Set<DedicatedAccount>();
+    public DbSet<Transfer> Transfers => Set<Transfer>();
     public DbSet<WebhookEndpoint> WebhookEndpoints => Set<WebhookEndpoint>();
     public DbSet<WebhookDelivery> WebhookDeliveries => Set<WebhookDelivery>();
 
@@ -78,6 +80,14 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.Property(a => a.PaymentState).HasConversion<string>();
             e.Property(a => a.AmountPaid).HasPrecision(18, 2);
             e.Property(a => a.ExpectedAmount).HasPrecision(18, 2);
+        });
+
+        modelBuilder.Entity<Transfer>(e =>
+        {
+            e.HasKey(t => t.Id);
+            e.HasIndex(t => new { t.TenantId, t.MerchantTxRef }).IsUnique();
+            e.Property(t => t.Status).HasConversion<string>();
+            e.Property(t => t.Amount).HasPrecision(18, 2);
         });
 
         modelBuilder.Entity<WebhookEndpoint>(e =>

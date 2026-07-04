@@ -10,6 +10,8 @@ using Kredar.API.Nomba;
 using Kredar.API.Team;
 using Kredar.API.Tenants;
 using Kredar.API.Transactions;
+using Kredar.API.Transfers;
+using Kredar.API.Insights;
 using Kredar.API.Webhooks;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
@@ -114,6 +116,13 @@ builder.Services.AddScoped<TeamService>();
 // Dedicated account services
 builder.Services.AddScoped<DedicatedAccountRepository>();
 builder.Services.AddScoped<DedicatedAccountService>();
+
+// Transfer services
+builder.Services.AddScoped<TransferRepository>();
+builder.Services.AddScoped<TransferService>();
+
+// Insights
+builder.Services.AddScoped<InsightsService>();
 
 // Webhook services
 builder.Services.AddScoped<WebhookEndpointRepository>();
