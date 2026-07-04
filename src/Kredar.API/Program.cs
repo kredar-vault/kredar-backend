@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using System.Text;
+using System.Threading.RateLimiting;
 using Kredar.API.ApiKeys;
 using Kredar.API.Auth;
 using Kredar.API.Checkout;
@@ -148,6 +149,37 @@ builder.Services.AddScoped<CheckoutService>();
 // Settlement
 builder.Services.AddScoped<SettlementService>();
 
+// Per-API-key rate limiting: test keys = 60 req/min, live keys = 300 req/min
+builder.Services.AddRateLimiter(options =>
+{
+    options.AddPolicy("api-key-limit", httpContext =>
+    {
+        var clientId = httpContext.Request.Headers["X-Client-Id"].FirstOrDefault()
+            ?? httpContext.User.FindFirstValue("clientId")
+            ?? "anonymous";
+        var isLive = clientId.StartsWith("krd_live", StringComparison.OrdinalIgnoreCase);
+        return RateLimitPartition.GetSlidingWindowLimiter(clientId, _ => new SlidingWindowRateLimiterOptions
+        {
+            PermitLimit = isLive ? 300 : 60,
+            Window = TimeSpan.FromMinutes(1),
+            SegmentsPerWindow = 6,
+            QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+            QueueLimit = 0
+        });
+    });
+    options.OnRejected = async (context, token) =>
+    {
+        context.HttpContext.Response.StatusCode = 429;
+        context.HttpContext.Response.Headers["Retry-After"] = "60";
+        await context.HttpContext.Response.WriteAsJsonAsync(new
+        {
+            status = 429,
+            error = "Rate limit exceeded. Upgrade to a live API key for higher limits.",
+            retryAfterSeconds = 60
+        }, token);
+    };
+});
+
 // Exception handler
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddProblemDetails();
@@ -194,6 +226,7 @@ using (var scope = app.Services.CreateScope())
 
 app.UseExceptionHandler();
 app.UseCors("AllowFrontend");
+app.UseRateLimiter();
 app.UseSwagger();
 app.UseSwaggerUI();
 app.UseAuthentication();

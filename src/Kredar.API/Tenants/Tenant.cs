@@ -20,5 +20,6 @@ public class Tenant
     public DateTime? LoginOtpExpiry { get; set; }
     public string? PasswordResetToken { get; set; }
     public DateTime? PasswordResetTokenExpiry { get; set; }
+    public bool IsSuspended { get; set; } = false;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }
