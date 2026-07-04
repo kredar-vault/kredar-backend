@@ -22,6 +22,13 @@ public class AuthController(AuthService authService) : ControllerBase
         return Ok(ApiResponse<string>.Success(message));
     }
 
+    [HttpPost("resend-verification")]
+    public async Task<IActionResult> ResendVerification([FromBody] ForgotPasswordRequest request)
+    {
+        var message = await authService.ResendVerificationAsync(request.Email);
+        return Ok(ApiResponse<string>.Success(message));
+    }
+
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginRequest request)
     {
@@ -34,6 +41,20 @@ public class AuthController(AuthService authService) : ControllerBase
     {
         var result = await authService.VerifyLoginOtpAsync(request);
         return Ok(ApiResponse<AuthResponse>.Success(result, "Login successful."));
+    }
+
+    [HttpPost("forgot-password")]
+    public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest request)
+    {
+        await authService.ForgotPasswordAsync(request);
+        return Ok(ApiResponse<string>.Success("If this email is registered, a reset link has been sent."));
+    }
+
+    [HttpPost("reset-password")]
+    public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest request)
+    {
+        var message = await authService.ResetPasswordAsync(request);
+        return Ok(ApiResponse<string>.Success(message));
     }
 
     [HttpPost("refresh")]

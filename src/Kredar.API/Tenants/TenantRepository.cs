@@ -20,6 +20,9 @@ public class TenantRepository(AppDbContext db)
     public async Task<Tenant?> FindByVerificationTokenAsync(string token) =>
         await db.Tenants.FirstOrDefaultAsync(t => t.EmailVerificationToken == token);
 
+    public async Task<Tenant?> FindByPasswordResetTokenAsync(string token) =>
+        await db.Tenants.FirstOrDefaultAsync(t => t.PasswordResetToken == token);
+
     public async Task UpdateAsync(Tenant tenant)
     {
         db.Tenants.Update(tenant);

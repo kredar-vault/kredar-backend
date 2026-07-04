@@ -18,5 +18,7 @@ public class Tenant
     public DateTime? EmailVerificationTokenExpiry { get; set; }
     public string? LoginOtp { get; set; }
     public DateTime? LoginOtpExpiry { get; set; }
+    public string? PasswordResetToken { get; set; }
+    public DateTime? PasswordResetTokenExpiry { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }
