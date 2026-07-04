@@ -1,6 +1,13 @@
+using Kredar.API.Admin;
+using Kredar.API.ApiKeys;
 using Kredar.API.Auth;
+using Kredar.API.Checkout;
 using Kredar.API.Customers;
 using Kredar.API.DedicatedAccounts;
+using Kredar.API.Onboarding;
+using Kredar.API.Rules;
+using Kredar.API.Settlement;
+using Kredar.API.SubMerchants;
 using Kredar.API.Team;
 using Kredar.API.Tenants;
 using Kredar.API.Transactions;
@@ -22,6 +29,15 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Transfer> Transfers => Set<Transfer>();
     public DbSet<WebhookEndpoint> WebhookEndpoints => Set<WebhookEndpoint>();
     public DbSet<WebhookDelivery> WebhookDeliveries => Set<WebhookDelivery>();
+    public DbSet<ApiKey> ApiKeys => Set<ApiKey>();
+    public DbSet<CheckoutSession> CheckoutSessions => Set<CheckoutSession>();
+    public DbSet<SettlementConfig> SettlementConfigs => Set<SettlementConfig>();
+    public DbSet<SettlementSplit> SettlementSplits => Set<SettlementSplit>();
+    public DbSet<EscrowHold> EscrowHolds => Set<EscrowHold>();
+    public DbSet<MoneyRule> MoneyRules => Set<MoneyRule>();
+    public DbSet<SubMerchant> SubMerchants => Set<SubMerchant>();
+    public DbSet<OnboardingApplication> OnboardingApplications => Set<OnboardingApplication>();
+    public DbSet<AdminUser> AdminUsers => Set<AdminUser>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -102,6 +118,72 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.HasKey(d => d.Id);
             e.Property(d => d.Status).HasConversion<string>();
             e.HasIndex(d => new { d.Status, d.NextAttemptAt });
+        });
+
+        modelBuilder.Entity<ApiKey>(e =>
+        {
+            e.HasKey(k => k.Id);
+            e.HasIndex(k => k.ClientId).IsUnique();
+            e.Property(k => k.Mode).HasConversion<string>();
+            e.Property(k => k.Status).HasConversion<string>();
+        });
+
+        modelBuilder.Entity<CheckoutSession>(e =>
+        {
+            e.HasKey(s => s.Id);
+            e.HasIndex(s => s.Token).IsUnique();
+        });
+
+        modelBuilder.Entity<SettlementConfig>(e =>
+        {
+            e.HasKey(c => c.Id);
+            e.HasIndex(c => c.TenantId).IsUnique();
+            e.Property(c => c.MinPayoutNaira).HasPrecision(18, 2);
+        });
+
+        modelBuilder.Entity<SettlementSplit>(e =>
+        {
+            e.HasKey(s => s.Id);
+            e.Property(s => s.Basis).HasConversion<string>();
+            e.Property(s => s.FlatNaira).HasPrecision(18, 2);
+        });
+
+        modelBuilder.Entity<EscrowHold>(e =>
+        {
+            e.HasKey(h => h.Id);
+            e.Property(h => h.State).HasConversion<string>();
+            e.Property(h => h.AmountNaira).HasPrecision(18, 2);
+        });
+
+        modelBuilder.Entity<MoneyRule>(e =>
+        {
+            e.HasKey(r => r.Id);
+            e.Property(r => r.Trigger).HasConversion<string>();
+            e.Property(r => r.Action).HasConversion<string>();
+            e.Property(r => r.ThresholdNaira).HasPrecision(18, 2);
+        });
+
+        modelBuilder.Entity<SubMerchant>(e =>
+        {
+            e.HasKey(s => s.Id);
+            e.HasIndex(s => new { s.TenantId, s.Reference }).IsUnique();
+            e.Property(s => s.Status).HasConversion<string>();
+        });
+
+        modelBuilder.Entity<OnboardingApplication>(e =>
+        {
+            e.HasKey(a => a.Id);
+            e.HasIndex(a => a.TenantId).IsUnique();
+            e.Property(a => a.Status).HasConversion<string>();
+            e.Property(a => a.Tier).HasConversion<string>();
+            e.HasOne(a => a.Tenant).WithMany().HasForeignKey(a => a.TenantId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<AdminUser>(e =>
+        {
+            e.HasKey(a => a.Id);
+            e.HasIndex(a => a.Email).IsUnique();
+            e.Property(a => a.Role).HasConversion<string>();
         });
     }
 }

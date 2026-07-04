@@ -121,6 +121,75 @@ public class NombaWebhookService(
         return true;
     }
 
+    public async Task<(TransactionStatus Status, string Reference)> ReconcileAsync(NombaParsedEvent parsed, CancellationToken ct = default)
+    {
+        var account = await db.DedicatedAccounts
+            .FirstOrDefaultAsync(a => a.AccountNumber == parsed.AccountNumber && a.Status == DedicatedAccountStatus.Active, ct)
+            ?? throw new Exception($"No active dedicated account found for account number '{parsed.AccountNumber}'.");
+
+        var duplicate = await db.Transactions.AnyAsync(
+            t => t.TenantId == account.TenantId && t.PaymentReference == parsed.NombaReference, ct);
+
+        if (duplicate)
+            throw new Exception($"Duplicate reference '{parsed.NombaReference}' — already reconciled.");
+
+        var amountNaira = parsed.AmountKobo / 100m;
+        var feeNaira = parsed.FeeKobo / 100m;
+
+        TransactionStatus status;
+        if (parsed.IsReversal)
+        {
+            status = TransactionStatus.Reversed;
+            account.AmountPaid = Math.Max(0, account.AmountPaid - amountNaira);
+            if (account.ExpectedAmount.HasValue)
+                account.PaymentState = account.AmountPaid <= 0 ? PaymentState.Unpaid : PaymentState.PartiallyPaid;
+        }
+        else
+        {
+            account.AmountPaid += amountNaira;
+            if (account.ExpectedAmount.HasValue)
+            {
+                if (account.AmountPaid >= account.ExpectedAmount.Value)
+                {
+                    status = account.AmountPaid > account.ExpectedAmount.Value ? TransactionStatus.Overpaid : TransactionStatus.Reconciled;
+                    account.PaymentState = account.AmountPaid > account.ExpectedAmount.Value ? PaymentState.Overpaid : PaymentState.FullyPaid;
+                }
+                else
+                {
+                    status = TransactionStatus.Underpaid;
+                    account.PaymentState = PaymentState.PartiallyPaid;
+                }
+            }
+            else
+            {
+                status = TransactionStatus.Reconciled;
+                account.PaymentState = PaymentState.FullyPaid;
+            }
+        }
+
+        var transaction = new Transaction
+        {
+            TenantId = account.TenantId,
+            CustomerId = account.CustomerId,
+            Reference = $"KRD-{Guid.NewGuid():N}",
+            PaymentReference = parsed.NombaReference,
+            DedicatedAccountNumber = parsed.AccountNumber,
+            Amount = amountNaira,
+            AmountReceived = amountNaira,
+            Fee = feeNaira,
+            ExpectedAmount = account.ExpectedAmount,
+            Narration = parsed.TransferName ?? "Simulated Deposit",
+            Status = status,
+        };
+
+        db.Transactions.Add(transaction);
+        db.DedicatedAccounts.Update(account);
+        await QueueOutboundEventsAsync(account, transaction, ct);
+        await db.SaveChangesAsync(ct);
+
+        return (status, transaction.Reference);
+    }
+
     private async Task QueueOutboundEventsAsync(DedicatedAccount account, Transaction txn, CancellationToken ct)
     {
         var endpoints = await db.WebhookEndpoints
