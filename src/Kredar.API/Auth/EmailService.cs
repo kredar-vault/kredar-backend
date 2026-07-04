@@ -11,7 +11,7 @@ public class EmailService(IResend resend, IOptions<EmailSettings> emailOptions, 
 
     public async Task SendVerificationEmailAsync(string toEmail, string token)
     {
-        var verificationLink = $"{_baseUrl}/api/auth/verify-email?token={token}";
+        var verificationLink = $"{_baseUrl}/api/v1/auth/verify-email?token={token}";
 
         var message = new EmailMessage
         {
