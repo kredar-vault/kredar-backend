@@ -123,20 +123,20 @@ public sealed class NombaClient(
 
         foreach (var txn in items.EnumerateArray())
         {
-            var reference = Str(txn, "reference") ?? Str(txn, "transactionId") ?? Str(txn, "id");
-            var accountNumber = Str(txn, "bankAccountNumber") ?? Str(txn, "accountNumber") ?? Str(txn, "destinationAccountNumber");
+            var reference = Str(txn, "transactionId") ?? Str(txn, "transaction_id")
+                ?? Str(txn, "reference") ?? Str(txn, "id");
+            // DVA webhooks use aliasAccountNumber for the NUBAN
+            var accountNumber = Str(txn, "aliasAccountNumber") ?? Str(txn, "alias_account_number")
+                ?? Str(txn, "bankAccountNumber") ?? Str(txn, "accountNumber")
+                ?? Str(txn, "destinationAccountNumber");
             if (string.IsNullOrWhiteSpace(reference) || string.IsNullOrWhiteSpace(accountNumber)) continue;
 
-            long amountKobo = 0;
-            if (txn.TryGetProperty("amount", out var amtEl) && amtEl.ValueKind == JsonValueKind.Number)
-                amountKobo = amtEl.TryGetInt64(out var v) ? v : (long)(amtEl.GetDecimal() * 100);
-
-            long feeKobo = 0;
-            if (txn.TryGetProperty("fee", out var feeEl) && feeEl.ValueKind == JsonValueKind.Number)
-                feeKobo = feeEl.TryGetInt64(out var fv) ? fv : (long)(feeEl.GetDecimal() * 100);
+            // Nomba sends amounts in naira — multiply by 100 to get kobo
+            var amountKobo = NairaToKobo(txn, "transactionAmount") ?? NairaToKobo(txn, "amount") ?? 0;
+            var feeKobo = NairaToKobo(txn, "fee") ?? NairaToKobo(txn, "transactionFee") ?? 0;
 
             results.Add(new NombaTransactionRecord(reference, accountNumber, amountKobo, feeKobo,
-                Str(txn, "senderName") ?? Str(txn, "bankAccountName")));
+                Str(txn, "senderName") ?? Str(txn, "originatorName") ?? Str(txn, "bankAccountName")));
         }
         return results;
     }
@@ -159,4 +159,16 @@ public sealed class NombaClient(
     private static string? Str(JsonElement el, string name) =>
         el.ValueKind == JsonValueKind.Object && el.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String
             ? v.GetString() : null;
+
+    private static long? NairaToKobo(JsonElement el, string name)
+    {
+        if (el.ValueKind != JsonValueKind.Object || !el.TryGetProperty(name, out var a)) return null;
+        if (a.ValueKind == JsonValueKind.Number && a.TryGetDecimal(out var naira))
+            return (long)decimal.Round(naira * 100m, 0, MidpointRounding.ToEven);
+        if (a.ValueKind == JsonValueKind.String &&
+            decimal.TryParse(a.GetString(), System.Globalization.NumberStyles.Number,
+                System.Globalization.CultureInfo.InvariantCulture, out naira))
+            return (long)decimal.Round(naira * 100m, 0, MidpointRounding.ToEven);
+        return null;
+    }
 }

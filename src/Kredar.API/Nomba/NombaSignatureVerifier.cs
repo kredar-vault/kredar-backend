@@ -43,8 +43,9 @@ public sealed class NombaSignatureVerifier(IOptions<NombaSettings> options)
         using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(_settings.WebhookSecret));
         var computed = Convert.ToBase64String(hmac.ComputeHash(Encoding.UTF8.GetBytes(hashingPayload)));
 
-        var a = Encoding.UTF8.GetBytes(computed.ToLowerInvariant());
-        var b = Encoding.UTF8.GetBytes(signatureHeader.Trim().ToLowerInvariant());
+        // Base64 is case-sensitive — compare without normalising case
+        var a = Encoding.UTF8.GetBytes(computed);
+        var b = Encoding.UTF8.GetBytes(signatureHeader.Trim());
         return a.Length == b.Length && CryptographicOperations.FixedTimeEquals(a, b);
     }
 
