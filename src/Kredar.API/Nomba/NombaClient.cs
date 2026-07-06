@@ -96,7 +96,11 @@ public sealed class NombaClient(
         var token = await tokenProvider.GetAccessTokenAsync(ct);
         var dateFrom = from.ToString("yyyy-MM-ddTHH:mm:ss");
         var dateTo = to.ToString("yyyy-MM-ddTHH:mm:ss");
-        var path = $"transactions?dateFrom={Uri.EscapeDataString(dateFrom)}&dateTo={Uri.EscapeDataString(dateTo)}";
+        // Nomba scopes virtual-account transactions under the sub-account
+        var subAccountId = _settings.SubAccountId;
+        var path = !string.IsNullOrWhiteSpace(subAccountId)
+            ? $"transactions/accounts/{subAccountId}?dateFrom={Uri.EscapeDataString(dateFrom)}&dateTo={Uri.EscapeDataString(dateTo)}"
+            : $"transactions?dateFrom={Uri.EscapeDataString(dateFrom)}&dateTo={Uri.EscapeDataString(dateTo)}";
 
         using var request = new HttpRequestMessage(HttpMethod.Get, path);
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
@@ -115,6 +119,7 @@ public sealed class NombaClient(
 
         JsonElement items = default;
         if (dataEl.ValueKind == JsonValueKind.Array) items = dataEl;
+        else if (dataEl.TryGetProperty("results", out var r)) items = r;
         else if (dataEl.TryGetProperty("transactions", out var t)) items = t;
         else if (dataEl.TryGetProperty("items", out var i)) items = i;
         else if (dataEl.TryGetProperty("content", out var c)) items = c;
