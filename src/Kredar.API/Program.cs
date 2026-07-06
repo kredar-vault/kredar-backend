@@ -16,6 +16,7 @@ using Kredar.API.Tenants;
 using Kredar.API.Transactions;
 using Kredar.API.Transfers;
 using Kredar.API.Insights;
+using Kredar.API.Settlement;
 using Kredar.API.Webhooks;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
@@ -138,6 +139,7 @@ builder.Services.AddScoped<WebhookEndpointService>();
 builder.Services.AddScoped<NombaWebhookService>();
 builder.Services.AddHostedService<WebhookDeliveryWorker>();
 builder.Services.AddHostedService<ReconciliationSweepWorker>();
+builder.Services.AddHostedService<SettlementWorker>();
 
 // API Keys
 builder.Services.AddScoped<ApiKeyRepository>();
