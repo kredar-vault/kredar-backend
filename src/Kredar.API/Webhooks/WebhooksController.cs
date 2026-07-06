@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using Kredar.API.Common;
 using Kredar.API.Config;
 using Kredar.API.Webhooks.Dto;
@@ -6,6 +7,14 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 
 namespace Kredar.API.Webhooks;
+
+public class SimulateDepositRequest
+{
+    [Required] public string NombaReference { get; set; } = string.Empty;
+    [Required] public string AccountNumber { get; set; } = string.Empty;
+    [Required] public decimal AmountNaira { get; set; }
+    public string? SenderName { get; set; }
+}
 
 [ApiController]
 public class WebhooksController(
@@ -29,6 +38,20 @@ public class WebhooksController(
 
         await nombaWebhookService.ProcessAsync(rawBody, signature, timestamp);
         return Ok();
+    }
+
+    // Manually reconcile a missed deposit — bypasses HMAC, scoped to the calling tenant's DVAs.
+    [HttpPost("api/v1/webhooks/simulate")]
+    [Authorize]
+    public async Task<IActionResult> SimulateDeposit([FromBody] SimulateDepositRequest req)
+    {
+        var tenantId = TenantContext.GetTenantId(HttpContext);
+        var parsed = new NombaParsedEvent(
+            req.NombaReference, req.AccountNumber, (long)(req.AmountNaira * 100),
+            0, req.SenderName ?? "Manual reconciliation", "virtual_account.funded", false);
+
+        var (status, reference) = await nombaWebhookService.ReconcileForTenantAsync(tenantId, parsed);
+        return Ok(ApiResponse<object>.Success(new { status, reference }, "Transaction reconciled."));
     }
 
     [HttpPost("api/v1/webhook-endpoints")]

@@ -121,6 +121,22 @@ public class NombaWebhookService(
         return true;
     }
 
+    public async Task<(TransactionStatus Status, string Reference)> ReconcileForTenantAsync(Guid tenantId, NombaParsedEvent parsed, CancellationToken ct = default)
+    {
+        var account = await db.DedicatedAccounts
+            .FirstOrDefaultAsync(a => a.AccountNumber == parsed.AccountNumber
+                && a.TenantId == tenantId
+                && a.Status == DedicatedAccountStatus.Active, ct)
+            ?? throw new KeyNotFoundException($"No active dedicated account '{parsed.AccountNumber}' found for your tenant.");
+
+        var duplicate = await db.Transactions.AnyAsync(
+            t => t.TenantId == tenantId && t.PaymentReference == parsed.NombaReference, ct);
+        if (duplicate)
+            throw new InvalidOperationException($"Reference '{parsed.NombaReference}' already reconciled.");
+
+        return await ReconcileAsync(parsed, ct);
+    }
+
     public async Task<(TransactionStatus Status, string Reference)> ReconcileAsync(NombaParsedEvent parsed, CancellationToken ct = default)
     {
         var account = await db.DedicatedAccounts
