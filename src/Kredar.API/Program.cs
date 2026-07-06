@@ -137,6 +137,7 @@ builder.Services.AddScoped<WebhookDeliveryRepository>();
 builder.Services.AddScoped<WebhookEndpointService>();
 builder.Services.AddScoped<NombaWebhookService>();
 builder.Services.AddHostedService<WebhookDeliveryWorker>();
+builder.Services.AddHostedService<ReconciliationSweepWorker>();
 
 // API Keys
 builder.Services.AddScoped<ApiKeyRepository>();
