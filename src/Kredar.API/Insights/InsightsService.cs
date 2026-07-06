@@ -40,6 +40,7 @@ public class InsightsService(AppDbContext db)
         return new InsightsResponse
         {
             DedicatedAccounts = vaCount,
+            AvailableBalance = totalPaid - totalTransferred,
             TotalTransactions = txnCount,
             TotalCollected = totalPaid,
             TotalExpected = totalExpected,
@@ -53,6 +54,25 @@ public class InsightsService(AppDbContext db)
             PartiallyPaidAccounts = partiallyPaid,
             TotalTransfers = transferCount,
             TotalTransferred = totalTransferred,
+        };
+    }
+
+    public async Task<BalanceResponse> GetBalanceAsync(Guid tenantId, CancellationToken ct = default)
+    {
+        var totalCollected = await db.DedicatedAccounts
+            .Where(a => a.TenantId == tenantId)
+            .SumAsync(a => (decimal?)a.AmountPaid, ct) ?? 0;
+
+        var totalTransferred = await db.Transfers
+            .Where(t => t.TenantId == tenantId && t.Status == TransferStatus.Succeeded)
+            .SumAsync(t => (decimal?)t.Amount, ct) ?? 0;
+
+        return new BalanceResponse
+        {
+            AvailableBalance = totalCollected - totalTransferred,
+            TotalCollected = totalCollected,
+            TotalTransferred = totalTransferred,
+            Currency = "NGN",
         };
     }
 }
