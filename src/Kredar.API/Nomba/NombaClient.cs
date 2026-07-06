@@ -64,7 +64,7 @@ public sealed class NombaClient(
 
     public async Task<TransferResult> InitiateTransferAsync(
         string merchantTxRef, decimal amountNaira, string accountNumber, string bankCode,
-        string? narration, CancellationToken ct = default)
+        string? accountName, string? narration, CancellationToken ct = default)
     {
         try
         {
@@ -73,6 +73,7 @@ public sealed class NombaClient(
                 merchantTxRef,
                 amount = amountNaira,
                 accountNumber,
+                accountName = accountName ?? "",
                 bankCode,
                 narration = narration ?? "Kredar payout",
                 senderName = "Kredar",

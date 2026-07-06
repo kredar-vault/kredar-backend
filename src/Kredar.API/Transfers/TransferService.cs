@@ -44,8 +44,19 @@ public class TransferService(TransferRepository repo, NombaClient nombaClient)
 
         await repo.AddAsync(transfer);
 
+        // Nomba rejects transfers without accountName — look it up if not provided
+        string? recipientName = null;
+        try
+        {
+            var lookup = await nombaClient.LookupBankAccountAsync(req.AccountNumber.Trim(), req.BankCode.Trim(), ct);
+            recipientName = lookup.AccountName;
+            transfer.RecipientName = recipientName;
+            await repo.UpdateAsync(transfer);
+        }
+        catch { /* best-effort; transfer attempt will still fail at Nomba with a clear error */ }
+
         var result = await nombaClient.InitiateTransferAsync(
-            reference, req.Amount, req.AccountNumber.Trim(), req.BankCode.Trim(), req.Narration, ct);
+            reference, req.Amount, req.AccountNumber.Trim(), req.BankCode.Trim(), recipientName, req.Narration, ct);
 
         if (result.Success)
         {
