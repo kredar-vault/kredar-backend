@@ -94,9 +94,9 @@ public sealed class NombaClient(
     {
         var http = httpClientFactory.CreateClient("nomba");
         var token = await tokenProvider.GetAccessTokenAsync(ct);
-        var dateFrom = from.ToString("yyyy-MM-dd");
-        var dateTo = to.ToString("yyyy-MM-dd");
-        var path = $"transactions?dateFrom={dateFrom}&dateTo={dateTo}&status=SUCCESS&type=COLLECTION";
+        var dateFrom = from.ToString("yyyy-MM-ddTHH:mm:ss");
+        var dateTo = to.ToString("yyyy-MM-ddTHH:mm:ss");
+        var path = $"transactions?dateFrom={Uri.EscapeDataString(dateFrom)}&dateTo={Uri.EscapeDataString(dateTo)}";
 
         using var request = new HttpRequestMessage(HttpMethod.Get, path);
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
