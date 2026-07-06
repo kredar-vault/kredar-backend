@@ -8,6 +8,7 @@ public class EmailService(IResend resend, IOptions<EmailSettings> emailOptions, 
 {
     private readonly EmailSettings _email = emailOptions.Value;
     private readonly string _baseUrl = config["AppSettings:BaseUrl"] ?? "http://localhost:8080";
+    private readonly string _frontendUrl = config["AppSettings:FrontendUrl"] ?? config["AppSettings:BaseUrl"] ?? "http://localhost:3000";
 
     public async Task SendVerificationEmailAsync(string toEmail, string token)
     {
@@ -103,7 +104,7 @@ public class EmailService(IResend resend, IOptions<EmailSettings> emailOptions, 
 
     public async Task SendPasswordResetEmailAsync(string toEmail, string token)
     {
-        var resetLink = $"{_baseUrl}/api/v1/auth/reset-password?token={token}";
+        var resetLink = $"{_frontendUrl}/reset-password?token={token}";
 
         var message = new EmailMessage
         {
