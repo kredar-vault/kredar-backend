@@ -240,31 +240,47 @@ public class NombaWebhookService(
         using var doc = JsonDocument.Parse(rawBody);
         var root = doc.RootElement;
 
-        var eventType = Str(root, "event_type") ?? string.Empty;
+        var eventType = Str(root, "event_type") ?? Str(root, "eventType") ?? string.Empty;
         var isReversal = eventType.Contains("REVERSAL", StringComparison.OrdinalIgnoreCase)
                          || eventType.Contains("REVERSED", StringComparison.OrdinalIgnoreCase);
 
-        if (!root.TryGetProperty("data", out var data)) return null;
-        if (!data.TryGetProperty("transaction", out var txn)) return null;
+        var data = root.TryGetProperty("data", out var d) ? d : root;
+        // Nomba may or may not nest under a "transaction" key — fall back to data itself
+        var txn = data.ValueKind == JsonValueKind.Object && data.TryGetProperty("transaction", out var t) ? t : data;
+        var customer = data.ValueKind == JsonValueKind.Object && data.TryGetProperty("customer", out var c) ? c : default;
 
-        var nombaRef = Str(txn, "reference") ?? Str(txn, "transactionId") ?? Str(root, "requestId");
-        var accountNumber = Str(txn, "bankAccountNumber") ?? Str(txn, "accountNumber") ?? Str(data, "bankAccountNumber");
+        var nombaRef = Str(txn, "transactionId") ?? Str(txn, "transaction_id")
+            ?? Str(txn, "reference") ?? Str(root, "requestId") ?? Str(root, "request_id");
+
+        // Nomba uses aliasAccountNumber for DVA (virtual account) NUBANs
+        var accountNumber = Str(txn, "aliasAccountNumber") ?? Str(txn, "alias_account_number")
+            ?? Str(txn, "bankAccountNumber") ?? Str(txn, "accountNumber")
+            ?? Str(txn, "destinationAccountNumber") ?? Str(customer, "accountNumber")
+            ?? Str(data, "bankAccountNumber");
 
         if (string.IsNullOrWhiteSpace(nombaRef) || string.IsNullOrWhiteSpace(accountNumber))
             return null;
 
-        long amountKobo = 0;
-        if (txn.TryGetProperty("amount", out var amtEl) && amtEl.ValueKind == JsonValueKind.Number)
-            amountKobo = amtEl.TryGetInt64(out var v) ? v : (long)(amtEl.GetDecimal() * 100);
-
-        long feeKobo = 0;
-        if (txn.TryGetProperty("fee", out var feeEl) && feeEl.ValueKind == JsonValueKind.Number)
-            feeKobo = feeEl.TryGetInt64(out var fv) ? fv : (long)(feeEl.GetDecimal() * 100);
+        // Nomba sends amounts in naira — always multiply by 100 to get kobo
+        var amountKobo = NairaToKobo(txn, "transactionAmount") ?? NairaToKobo(txn, "amount") ?? 0;
+        var feeKobo = NairaToKobo(txn, "fee") ?? NairaToKobo(txn, "transactionFee") ?? 0;
 
         return new NombaParsedEvent(
             nombaRef, accountNumber, amountKobo, feeKobo,
-            Str(txn, "senderName") ?? Str(txn, "bankAccountName"),
+            Str(txn, "senderName") ?? Str(txn, "originatorName") ?? Str(txn, "bankAccountName"),
             eventType, isReversal);
+    }
+
+    private static long? NairaToKobo(JsonElement el, string name)
+    {
+        if (el.ValueKind != JsonValueKind.Object || !el.TryGetProperty(name, out var a)) return null;
+        if (a.ValueKind == JsonValueKind.Number && a.TryGetDecimal(out var naira))
+            return (long)decimal.Round(naira * 100m, 0, MidpointRounding.ToEven);
+        if (a.ValueKind == JsonValueKind.String &&
+            decimal.TryParse(a.GetString(), System.Globalization.NumberStyles.Number,
+                System.Globalization.CultureInfo.InvariantCulture, out naira))
+            return (long)decimal.Round(naira * 100m, 0, MidpointRounding.ToEven);
+        return null;
     }
 
     private static string? Str(JsonElement el, string name) =>
