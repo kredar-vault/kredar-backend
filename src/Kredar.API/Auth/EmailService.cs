@@ -104,7 +104,7 @@ public class EmailService(IResend resend, IOptions<EmailSettings> emailOptions, 
 
     public async Task SendPasswordResetEmailAsync(string toEmail, string token)
     {
-        var resetLink = $"{_frontendUrl}/reset-password?token={token}";
+        var resetLink = $"{_frontendUrl}/auth/reset-password?token={token}";
 
         var message = new EmailMessage
         {
