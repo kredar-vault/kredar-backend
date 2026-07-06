@@ -7,6 +7,7 @@ using Microsoft.Extensions.Options;
 namespace Kredar.API.Nomba;
 
 public sealed record ProvisionedAccount(string AccountNumber, string BankName, string AccountName, string? ProviderId);
+public sealed record NombaTransactionRecord(string Reference, string AccountNumber, long AmountKobo, long FeeKobo, string? SenderName);
 public sealed record BankLookupResult(string AccountName, string AccountNumber, string BankCode);
 public sealed record TransferResult(bool Success, string? Reference, string? Error);
 
@@ -87,6 +88,57 @@ public sealed class NombaClient(
         {
             return new TransferResult(false, null, ex.Message);
         }
+    }
+
+    public async Task<List<NombaTransactionRecord>> GetRecentTransactionsAsync(DateTime from, DateTime to, CancellationToken ct = default)
+    {
+        var http = httpClientFactory.CreateClient("nomba");
+        var token = await tokenProvider.GetAccessTokenAsync(ct);
+        var dateFrom = from.ToString("yyyy-MM-dd");
+        var dateTo = to.ToString("yyyy-MM-dd");
+        var path = $"transactions?dateFrom={dateFrom}&dateTo={dateTo}&status=SUCCESS&type=COLLECTION";
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, path);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        if (!string.IsNullOrWhiteSpace(_settings.AccountId))
+            request.Headers.TryAddWithoutValidation("accountId", _settings.AccountId);
+
+        using var response = await http.SendAsync(request, ct);
+        if (!response.IsSuccessStatusCode) return [];
+
+        var raw = await response.Content.ReadAsStringAsync(ct);
+        using var doc = JsonDocument.Parse(raw);
+        var root = doc.RootElement;
+
+        var results = new List<NombaTransactionRecord>();
+        JsonElement dataEl = root.TryGetProperty("data", out var d) ? d : root;
+
+        JsonElement items = default;
+        if (dataEl.ValueKind == JsonValueKind.Array) items = dataEl;
+        else if (dataEl.TryGetProperty("transactions", out var t)) items = t;
+        else if (dataEl.TryGetProperty("items", out var i)) items = i;
+        else if (dataEl.TryGetProperty("content", out var c)) items = c;
+
+        if (items.ValueKind != JsonValueKind.Array) return results;
+
+        foreach (var txn in items.EnumerateArray())
+        {
+            var reference = Str(txn, "reference") ?? Str(txn, "transactionId") ?? Str(txn, "id");
+            var accountNumber = Str(txn, "bankAccountNumber") ?? Str(txn, "accountNumber") ?? Str(txn, "destinationAccountNumber");
+            if (string.IsNullOrWhiteSpace(reference) || string.IsNullOrWhiteSpace(accountNumber)) continue;
+
+            long amountKobo = 0;
+            if (txn.TryGetProperty("amount", out var amtEl) && amtEl.ValueKind == JsonValueKind.Number)
+                amountKobo = amtEl.TryGetInt64(out var v) ? v : (long)(amtEl.GetDecimal() * 100);
+
+            long feeKobo = 0;
+            if (txn.TryGetProperty("fee", out var feeEl) && feeEl.ValueKind == JsonValueKind.Number)
+                feeKobo = feeEl.TryGetInt64(out var fv) ? fv : (long)(feeEl.GetDecimal() * 100);
+
+            results.Add(new NombaTransactionRecord(reference, accountNumber, amountKobo, feeKobo,
+                Str(txn, "senderName") ?? Str(txn, "bankAccountName")));
+        }
+        return results;
     }
 
     private async Task<JsonDocument> PostAsync(string path, object body, CancellationToken ct)
