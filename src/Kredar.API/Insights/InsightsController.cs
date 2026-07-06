@@ -17,4 +17,12 @@ public class InsightsController(InsightsService service) : ControllerBase
         var result = await service.GetAsync(tenantId, ct);
         return Ok(ApiResponse<InsightsResponse>.Success(result));
     }
+
+    [HttpGet("balance")]
+    public async Task<IActionResult> Balance(CancellationToken ct)
+    {
+        var tenantId = TenantContext.GetTenantId(HttpContext);
+        var balance = await service.GetBalanceAsync(tenantId, ct);
+        return Ok(ApiResponse<BalanceResponse>.Success(balance));
+    }
 }
