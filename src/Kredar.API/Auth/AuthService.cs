@@ -112,12 +112,12 @@ public class AuthService(TenantRepository tenantRepo, JwtService jwtService, Ema
         var tenant = await tenantRepo.FindByEmailAsync(request.Email);
         if (tenant == null) return; // silent — don't reveal if email exists
 
-        var token = Guid.NewGuid().ToString("N");
-        tenant.PasswordResetToken = token;
-        tenant.PasswordResetTokenExpiry = DateTime.UtcNow.AddHours(1);
+        var code = Random.Shared.Next(100000, 999999).ToString();
+        tenant.PasswordResetToken = code;
+        tenant.PasswordResetTokenExpiry = DateTime.UtcNow.AddMinutes(15);
         await tenantRepo.UpdateAsync(tenant);
 
-        _ = emailService.SendPasswordResetEmailAsync(tenant.Email, token);
+        _ = emailService.SendPasswordResetEmailAsync(tenant.Email, code);
     }
 
     public async Task<string> ResetPasswordAsync(ResetPasswordRequest request)
@@ -125,11 +125,14 @@ public class AuthService(TenantRepository tenantRepo, JwtService jwtService, Ema
         if (request.NewPassword != request.ConfirmPassword)
             throw new Exception("Passwords do not match.");
 
-        var tenant = await tenantRepo.FindByPasswordResetTokenAsync(request.Token)
-            ?? throw new Exception("Invalid or expired reset link.");
+        var tenant = await tenantRepo.FindByEmailAsync(request.Email)
+            ?? throw new Exception("Invalid request.");
 
-        if (tenant.PasswordResetTokenExpiry < DateTime.UtcNow)
-            throw new Exception("Reset link has expired. Please request a new one.");
+        if (tenant.PasswordResetToken == null || tenant.PasswordResetTokenExpiry < DateTime.UtcNow)
+            throw new Exception("Code has expired. Please request a new one.");
+
+        if (tenant.PasswordResetToken != request.Code)
+            throw new Exception("Invalid code. Please try again.");
 
         tenant.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword, workFactor: 10);
         tenant.PasswordResetToken = null;
