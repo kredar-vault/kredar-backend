@@ -8,7 +8,6 @@ public class EmailService(IResend resend, IOptions<EmailSettings> emailOptions, 
 {
     private readonly EmailSettings _email = emailOptions.Value;
     private readonly string _baseUrl = config["AppSettings:BaseUrl"] ?? "http://localhost:8080";
-    private readonly string _frontendUrl = config["AppSettings:FrontendUrl"] ?? config["AppSettings:BaseUrl"] ?? "http://localhost:3000";
 
     public async Task SendVerificationEmailAsync(string toEmail, string token)
     {
@@ -102,10 +101,8 @@ public class EmailService(IResend resend, IOptions<EmailSettings> emailOptions, 
         await resend.EmailSendAsync(message);
     }
 
-    public async Task SendPasswordResetEmailAsync(string toEmail, string token)
+    public async Task SendPasswordResetEmailAsync(string toEmail, string code)
     {
-        var resetLink = $"{_frontendUrl}/auth/reset-password?token={token}";
-
         var message = new EmailMessage
         {
             From = $"{_email.FromName} <{_email.FromEmail}>",
@@ -113,11 +110,8 @@ public class EmailService(IResend resend, IOptions<EmailSettings> emailOptions, 
             Subject = "Reset your Kredar password",
             HtmlBody = $"""
                 <h2>Reset your password</h2>
-                <p>Click the button below to set a new password. This link expires in 1 hour.</p>
-                <a href="{resetLink}"
-                   style="background:#000;color:#fff;padding:12px 24px;text-decoration:none;border-radius:6px;display:inline-block;">
-                   Reset Password
-                </a>
+                <p>Use the code below to reset your password. It expires in <strong>15 minutes</strong>.</p>
+                <div style="font-size:36px;font-weight:bold;letter-spacing:8px;padding:20px 0;">{code}</div>
                 <p>If you did not request a password reset, ignore this email.</p>
             """
         };
