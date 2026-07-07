@@ -7,11 +7,11 @@ namespace Kredar.API.Auth;
 public class EmailService(IResend resend, IOptions<EmailSettings> emailOptions, IConfiguration config)
 {
     private readonly EmailSettings _email = emailOptions.Value;
-    private readonly string _frontendUrl = config["AppSettings:FrontendUrl"] ?? "http://localhost:3000";
+    private readonly string _baseUrl = config["AppSettings:BaseUrl"] ?? "http://localhost:8080";
 
     public async Task SendVerificationEmailAsync(string toEmail, string token)
     {
-        var verificationLink = $"{_frontendUrl}/auth/verify-email?token={token}&email={Uri.EscapeDataString(toEmail)}";
+        var verificationLink = $"{_baseUrl}/api/v1/auth/verify-email?token={token}";
 
         var message = new EmailMessage
         {
