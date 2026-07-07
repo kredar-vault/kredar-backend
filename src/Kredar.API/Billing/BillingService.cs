@@ -1,9 +1,10 @@
 using Kredar.API.Data;
+using Kredar.API.Notifications;
 using Microsoft.EntityFrameworkCore;
 
 namespace Kredar.API.Billing;
 
-public class BillingService(AppDbContext db)
+public class BillingService(AppDbContext db, NotificationService notif)
 {
     public async Task<BillingSchedule> CreateAsync(
         Guid tenantId, string accountRef, BillingInterval interval,
@@ -37,6 +38,9 @@ public class BillingService(AppDbContext db)
 
         db.BillingSchedules.Add(schedule);
         await db.SaveChangesAsync(ct);
+        _ = notif.CreateAsync(tenantId, NotificationType.BillingScheduleCreated,
+            "Billing schedule created",
+            $"A {interval} billing schedule was created for account {accountRef}. Amount: ₦{amountKobo / 100m:N2}.");
         return schedule;
     }
 
@@ -78,6 +82,9 @@ public class BillingService(AppDbContext db)
             throw new InvalidOperationException("Only active schedules can be paused.");
         schedule.Status = BillingScheduleStatus.Paused;
         await db.SaveChangesAsync(ct);
+        _ = notif.CreateAsync(tenantId, NotificationType.BillingSchedulePaused,
+            "Billing schedule paused",
+            $"Billing schedule for account {schedule.AccountRef} has been paused.");
         return schedule;
     }
 
@@ -98,6 +105,9 @@ public class BillingService(AppDbContext db)
             throw new InvalidOperationException("Schedule is already cancelled.");
         schedule.Status = BillingScheduleStatus.Cancelled;
         await db.SaveChangesAsync(ct);
+        _ = notif.CreateAsync(tenantId, NotificationType.BillingScheduleCancelled,
+            "Billing schedule cancelled",
+            $"Billing schedule for account {schedule.AccountRef} has been cancelled.");
         return schedule;
     }
 

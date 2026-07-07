@@ -1,13 +1,15 @@
 using Kredar.API.Customers;
 using Kredar.API.DedicatedAccounts.Dto;
 using Kredar.API.Nomba;
+using Kredar.API.Notifications;
 
 namespace Kredar.API.DedicatedAccounts;
 
 public class DedicatedAccountService(
     DedicatedAccountRepository repo,
     CustomerRepository customerRepo,
-    NombaClient nombaClient)
+    NombaClient nombaClient,
+    NotificationService notif)
 {
     public async Task<DedicatedAccountResponse> CreateAsync(Guid tenantId, CreateDedicatedAccountRequest req, CancellationToken ct = default)
     {
@@ -40,6 +42,10 @@ public class DedicatedAccountService(
 
         customer.DedicatedAccountNumber = provisioned.AccountNumber;
         await customerRepo.UpdateAsync(customer);
+
+        _ = notif.CreateAsync(tenantId, NotificationType.DedicatedAccountCreated,
+            "Dedicated account provisioned",
+            $"Virtual account {provisioned.AccountNumber} ({provisioned.BankName}) was created for {accountName}.");
 
         return Map(account, customer);
     }

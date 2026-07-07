@@ -81,6 +81,9 @@ public class OnboardingController(AppDbContext db, TransferService transferServi
 
         db.OnboardingApplications.Update(app);
         await db.SaveChangesAsync(ct);
+        _ = notif.CreateAsync(tenantId, NotificationType.OnboardingSubmitted,
+            "Developer KYC submitted",
+            "Your developer KYC has been submitted and is under review.");
         return Ok(ApiResponse<OnboardingApplication>.Success(app, "Developer KYC submitted for review."));
     }
 

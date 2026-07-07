@@ -39,8 +39,9 @@ public enum NotificationType
     WebhookEndpointAdded,
     WebhookEndpointRemoved,
 
-    // Customers
+    // Customers & Accounts
     CustomerCreated,
+    DedicatedAccountCreated,
 
     // Security
     NewDeviceLogin,
