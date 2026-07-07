@@ -1,5 +1,6 @@
 using Kredar.API.Common;
 using Kredar.API.Data;
+using Kredar.API.Transfers;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -25,7 +26,7 @@ public class SubmitOnboardingRequest
 [ApiController]
 [Route("api/v1/onboarding")]
 [Authorize]
-public class OnboardingController(AppDbContext db) : ControllerBase
+public class OnboardingController(AppDbContext db, TransferService transferService) : ControllerBase
 {
     [HttpGet]
     public async Task<IActionResult> Get(CancellationToken ct)
@@ -47,6 +48,16 @@ public class OnboardingController(AppDbContext db) : ControllerBase
         if (app.Status == OnboardingStatus.UnderReview)
             throw new Exception("Your application is already under review.");
 
+        try
+        {
+            var lookup = await transferService.LookupAsync(request.SettlementAccountNumber, request.SettlementBankCode, ct);
+            app.SettlementAccountName = lookup.AccountName;
+        }
+        catch
+        {
+            return BadRequest(ApiResponse<string>.Fail("Could not verify the settlement account number. Please check and try again."));
+        }
+
         app.LegalName = request.LegalName;
         app.RegistrationNumber = request.RegistrationNumber;
         app.BusinessType = request.BusinessType;
@@ -57,7 +68,6 @@ public class OnboardingController(AppDbContext db) : ControllerBase
         app.Website = request.Website;
         app.SettlementBankName = request.SettlementBankName;
         app.SettlementBankCode = request.SettlementBankCode;
-        app.SettlementAccountName = request.SettlementAccountName;
         app.SettlementAccountNumber = request.SettlementAccountNumber;
         app.Status = OnboardingStatus.UnderReview;
         app.SubmittedAt = DateTime.UtcNow;
