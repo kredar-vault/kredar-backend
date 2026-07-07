@@ -1,8 +1,9 @@
+using Kredar.API.Notifications;
 using Kredar.API.Webhooks.Dto;
 
 namespace Kredar.API.Webhooks;
 
-public class WebhookEndpointService(WebhookEndpointRepository repo)
+public class WebhookEndpointService(WebhookEndpointRepository repo, NotificationService notif)
 {
     public async Task<WebhookEndpointResponse> RegisterAsync(Guid tenantId, RegisterWebhookEndpointRequest req)
     {
@@ -17,6 +18,10 @@ public class WebhookEndpointService(WebhookEndpointRepository repo)
             SigningSecret = secret,
         };
         await repo.AddAsync(endpoint);
+
+        _ = notif.CreateAsync(tenantId, NotificationType.WebhookEndpointAdded,
+            "Webhook endpoint added",
+            $"A new webhook endpoint was registered: {req.Url.Trim()}");
 
         return new WebhookEndpointResponse
         {
@@ -44,7 +49,12 @@ public class WebhookEndpointService(WebhookEndpointRepository repo)
     {
         var endpoint = await repo.FindByIdAsync(tenantId, id)
             ?? throw new KeyNotFoundException("Webhook endpoint not found.");
+        var url = endpoint.Url;
         endpoint.Active = false;
         await repo.UpdateAsync(endpoint);
+
+        _ = notif.CreateAsync(tenantId, NotificationType.WebhookEndpointRemoved,
+            "Webhook endpoint removed",
+            $"Webhook endpoint removed: {url}");
     }
 }

@@ -1,10 +1,11 @@
 using Kredar.API.Auth;
+using Kredar.API.Notifications;
 using Kredar.API.Team.Dto;
 using Kredar.API.Tenants;
 
 namespace Kredar.API.Team;
 
-public class TeamService(TeamRepository teamRepo, EmailService emailService, TenantRepository tenantRepo)
+public class TeamService(TeamRepository teamRepo, EmailService emailService, TenantRepository tenantRepo, NotificationService notif)
 {
     public async Task<List<TeamMemberResponse>> GetAllAsync(Guid tenantId) =>
         (await teamRepo.GetAllAsync(tenantId)).Select(MapToResponse).ToList();
@@ -32,6 +33,9 @@ public class TeamService(TeamRepository teamRepo, EmailService emailService, Ten
         var tenant = await tenantRepo.FindByIdAsync(tenantId);
         var tenantName = tenant?.BusinessName ?? "Kredar";
         _ = emailService.SendTeamInviteEmailAsync(member.Email, token, tenantName);
+        _ = notif.CreateAsync(tenantId, NotificationType.TeamMemberInvited,
+            "Team member invited",
+            $"{request.FullName} ({request.Email}) was invited to join as {request.Role}.");
 
         return MapToResponse(member);
     }
@@ -49,6 +53,9 @@ public class TeamService(TeamRepository teamRepo, EmailService emailService, Ten
         member.InviteTokenExpiry = null;
 
         await teamRepo.UpdateAsync(member);
+        _ = notif.CreateAsync(member.TenantId, NotificationType.TeamMemberAccepted,
+            "Team member joined",
+            $"{member.FullName} ({member.Email}) accepted their invitation.");
         return MapToResponse(member);
     }
 
@@ -93,6 +100,9 @@ public class TeamService(TeamRepository teamRepo, EmailService emailService, Ten
             ?? throw new KeyNotFoundException("Team member not found.");
 
         await teamRepo.DeleteAsync(member);
+        _ = notif.CreateAsync(tenantId, NotificationType.TeamMemberRemoved,
+            "Team member removed",
+            $"{member.FullName} ({member.Email}) was removed from the team.");
     }
 
     private static TeamMemberResponse MapToResponse(TeamMember m) => new()

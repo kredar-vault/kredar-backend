@@ -1,5 +1,6 @@
 using Kredar.API.Common;
 using Kredar.API.Data;
+using Kredar.API.Notifications;
 using Kredar.API.Onboarding;
 using Microsoft.EntityFrameworkCore;
 
@@ -7,7 +8,7 @@ namespace Kredar.API.ApiKeys;
 
 public record CreatedApiKey(Guid Id, string ClientId, string ClientSecret, string Mode, string Label, DateTime CreatedAt);
 
-public class ApiKeyService(ApiKeyRepository repo, AppDbContext db)
+public class ApiKeyService(ApiKeyRepository repo, AppDbContext db, NotificationService notif)
 {
     public async Task<CreatedApiKey> CreateAsync(Guid tenantId, string label, ApiKeyMode mode)
     {
@@ -37,6 +38,9 @@ public class ApiKeyService(ApiKeyRepository repo, AppDbContext db)
         };
 
         await repo.AddAsync(key);
+        _ = notif.CreateAsync(tenantId, NotificationType.ApiKeyCreated,
+            "API key created",
+            $"A new {mode} API key \"{label}\" ({clientId}) was created.");
         return new CreatedApiKey(key.Id, clientId, secret, mode.ToString(), key.Label, key.CreatedAt);
     }
 
@@ -49,14 +53,23 @@ public class ApiKeyService(ApiKeyRepository repo, AppDbContext db)
             ?? throw new Exception("API key not found.");
         key.Status = ApiKeyStatus.Revoked;
         await repo.UpdateAsync(key);
+        _ = notif.CreateAsync(tenantId, NotificationType.ApiKeyRevoked,
+            "API key revoked",
+            $"API key \"{key.Label}\" ({key.ClientId}) was revoked.");
     }
 
     public async Task<CreatedApiKey> RotateAsync(Guid id, Guid tenantId)
     {
         var key = await repo.FindByIdAsync(id, tenantId)
             ?? throw new Exception("API key not found.");
+        var label = key.Label;
+        var mode = key.Mode;
         key.Status = ApiKeyStatus.Revoked;
         await repo.UpdateAsync(key);
-        return await CreateAsync(tenantId, key.Label, key.Mode);
+        var created = await CreateAsync(tenantId, label, mode);
+        _ = notif.CreateAsync(tenantId, NotificationType.ApiKeyRotated,
+            "API key rotated",
+            $"API key \"{label}\" was rotated. New key: {created.ClientId}.");
+        return created;
     }
 }

@@ -1,5 +1,6 @@
 using Kredar.API.Common;
 using Kredar.API.Data;
+using Kredar.API.Notifications;
 using Kredar.API.Transfers;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -42,7 +43,7 @@ public class SubmitOnboardingRequest
 [ApiController]
 [Route("api/v1/onboarding")]
 [Authorize]
-public class OnboardingController(AppDbContext db, TransferService transferService, IWebHostEnvironment env) : ControllerBase
+public class OnboardingController(AppDbContext db, TransferService transferService, IWebHostEnvironment env, NotificationService notif) : ControllerBase
 {
     [HttpGet]
     public async Task<IActionResult> Get(CancellationToken ct)
@@ -172,6 +173,11 @@ public class OnboardingController(AppDbContext db, TransferService transferServi
 
         db.OnboardingApplications.Update(app);
         await db.SaveChangesAsync(ct);
+
+        _ = notif.CreateAsync(tenantId, NotificationType.OnboardingSubmitted,
+            "Onboarding submitted",
+            "Your business KYB application has been submitted and is under review.");
+
         return Ok(ApiResponse<OnboardingApplication>.Success(app, "Application submitted for review."));
     }
 

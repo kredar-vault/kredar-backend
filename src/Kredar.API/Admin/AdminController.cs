@@ -5,6 +5,7 @@ using System.Text;
 using Kredar.API.Common;
 using Kredar.API.Config;
 using Kredar.API.Data;
+using Kredar.API.Notifications;
 using Kredar.API.Onboarding;
 using Kredar.API.Tenants;
 using Kredar.API.Transactions;
@@ -45,7 +46,7 @@ public class RequestInfoRequest
 
 [ApiController]
 [Route("api/v1/admin")]
-public class AdminController(AppDbContext db, IOptions<JwtSettings> jwtOptions, IConfiguration config) : ControllerBase
+public class AdminController(AppDbContext db, IOptions<JwtSettings> jwtOptions, IConfiguration config, NotificationService notif) : ControllerBase
 {
     private readonly JwtSettings _jwt = jwtOptions.Value;
 
@@ -221,6 +222,9 @@ public class AdminController(AppDbContext db, IOptions<JwtSettings> jwtOptions, 
         db.OnboardingApplications.Update(app);
         await WriteAuditAsync("ApproveOnboarding", tenantId, request?.Reason, ct);
         await db.SaveChangesAsync(ct);
+        _ = notif.CreateAsync(tenantId, NotificationType.OnboardingApproved,
+            "Application approved",
+            "Your KYB application has been approved. You now have live access.");
         return Ok(ApiResponse<object>.Success(new { }, "Tenant approved for live."));
     }
 
@@ -239,6 +243,9 @@ public class AdminController(AppDbContext db, IOptions<JwtSettings> jwtOptions, 
         db.OnboardingApplications.Update(app);
         await WriteAuditAsync("RejectOnboarding", tenantId, request.Reason, ct);
         await db.SaveChangesAsync(ct);
+        _ = notif.CreateAsync(tenantId, NotificationType.OnboardingRejected,
+            "Application rejected",
+            $"Your KYB application was rejected. Reason: {request.Reason}");
         return Ok(ApiResponse<object>.Success(new { }, "Tenant rejected."));
     }
 
@@ -257,6 +264,9 @@ public class AdminController(AppDbContext db, IOptions<JwtSettings> jwtOptions, 
         db.OnboardingApplications.Update(app);
         await WriteAuditAsync("RequestMoreInfo", tenantId, request.Reason, ct);
         await db.SaveChangesAsync(ct);
+        _ = notif.CreateAsync(tenantId, NotificationType.OnboardingMoreInfoRequired,
+            "More information required",
+            $"Your KYB application needs additional information: {request.Reason}");
         return Ok(ApiResponse<object>.Success(new { }, "Tenant notified to provide more information."));
     }
 

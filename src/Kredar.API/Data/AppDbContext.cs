@@ -2,6 +2,7 @@ using Kredar.API.Admin;
 using Kredar.API.ApiKeys;
 using Kredar.API.Auth;
 using Kredar.API.Billing;
+using Kredar.API.Notifications;
 using Kredar.API.Checkout;
 using Kredar.API.Customers;
 using Kredar.API.DedicatedAccounts;
@@ -40,6 +41,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<BillingSchedule> BillingSchedules => Set<BillingSchedule>();
     public DbSet<BillingPeriod> BillingPeriods => Set<BillingPeriod>();
     public DbSet<OnboardingDocument> OnboardingDocuments => Set<OnboardingDocument>();
+    public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<OnboardingApplication> OnboardingApplications => Set<OnboardingApplication>();
     public DbSet<AdminUser> AdminUsers => Set<AdminUser>();
     public DbSet<AdminAuditLog> AdminAuditLogs => Set<AdminAuditLog>();
@@ -213,6 +215,13 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.HasKey(p => p.Id);
             e.Property(p => p.Status).HasConversion<string>();
             e.Ignore(p => p.OutstandingKobo);
+        });
+
+        modelBuilder.Entity<Notification>(e =>
+        {
+            e.HasKey(n => n.Id);
+            e.HasIndex(n => new { n.TenantId, n.CreatedAt });
+            e.Property(n => n.Type).HasConversion<string>();
         });
 
         modelBuilder.Entity<AdminUser>(e =>

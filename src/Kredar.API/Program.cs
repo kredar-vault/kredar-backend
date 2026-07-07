@@ -124,6 +124,9 @@ builder.Services.AddScoped<TeamService>();
 // Billing
 builder.Services.AddScoped<Kredar.API.Billing.BillingService>();
 
+// Notifications
+builder.Services.AddScoped<Kredar.API.Notifications.NotificationService>();
+
 // Dedicated account services
 builder.Services.AddScoped<DedicatedAccountRepository>();
 builder.Services.AddScoped<DedicatedAccountService>();

@@ -1,9 +1,10 @@
 using Kredar.API.Nomba;
+using Kredar.API.Notifications;
 using Kredar.API.Transfers.Dto;
 
 namespace Kredar.API.Transfers;
 
-public class TransferService(TransferRepository repo, NombaClient nombaClient)
+public class TransferService(TransferRepository repo, NombaClient nombaClient, NotificationService notif)
 {
     public async Task<BankLookupResponse> LookupAsync(string accountNumber, string bankCode, CancellationToken ct = default)
     {
@@ -44,7 +45,6 @@ public class TransferService(TransferRepository repo, NombaClient nombaClient)
 
         await repo.AddAsync(transfer);
 
-        // Nomba rejects transfers without accountName — look it up if not provided
         string? recipientName = null;
         try
         {
@@ -53,7 +53,7 @@ public class TransferService(TransferRepository repo, NombaClient nombaClient)
             transfer.RecipientName = recipientName;
             await repo.UpdateAsync(transfer);
         }
-        catch { /* best-effort; transfer attempt will still fail at Nomba with a clear error */ }
+        catch { }
 
         var result = await nombaClient.InitiateTransferAsync(
             reference, req.Amount, req.AccountNumber.Trim(), req.BankCode.Trim(), recipientName, req.Narration, ct);
@@ -63,12 +63,18 @@ public class TransferService(TransferRepository repo, NombaClient nombaClient)
             transfer.Status = TransferStatus.Succeeded;
             transfer.ProviderReference = result.Reference;
             transfer.CompletedAt = DateTime.UtcNow;
+            _ = notif.CreateAsync(tenantId, NotificationType.TransferCompleted,
+                "Transfer successful",
+                $"₦{req.Amount:N2} sent to {recipientName ?? req.AccountNumber}. Ref: {reference}.");
         }
         else
         {
             transfer.Status = TransferStatus.Failed;
             transfer.FailureReason = result.Error;
             transfer.CompletedAt = DateTime.UtcNow;
+            _ = notif.CreateAsync(tenantId, NotificationType.TransferFailed,
+                "Transfer failed",
+                $"₦{req.Amount:N2} transfer to {recipientName ?? req.AccountNumber} failed. Reason: {result.Error}. Ref: {reference}.");
         }
 
         await repo.UpdateAsync(transfer);

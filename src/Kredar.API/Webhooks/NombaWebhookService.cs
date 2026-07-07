@@ -2,6 +2,7 @@ using System.Text.Json;
 using Kredar.API.Data;
 using Kredar.API.DedicatedAccounts;
 using Kredar.API.Nomba;
+using Kredar.API.Notifications;
 using Kredar.API.Transactions;
 using Microsoft.EntityFrameworkCore;
 
@@ -19,7 +20,8 @@ public sealed record NombaParsedEvent(
 public class NombaWebhookService(
     AppDbContext db,
     NombaSignatureVerifier signatureVerifier,
-    ILogger<NombaWebhookService> logger)
+    ILogger<NombaWebhookService> logger,
+    NotificationService notif)
 {
     public async Task<bool> ProcessAsync(byte[] rawBody, string? signature, string? timestamp, CancellationToken ct = default)
     {
@@ -116,6 +118,12 @@ public class NombaWebhookService(
         await QueueOutboundEventsAsync(account, transaction, ct);
 
         await db.SaveChangesAsync(ct);
+
+        var notifType = status == TransactionStatus.Reversed ? NotificationType.PaymentFailed : NotificationType.PaymentReceived;
+        var notifTitle = status == TransactionStatus.Reversed ? "Payment reversed" : "Payment received";
+        _ = notif.CreateAsync(account.TenantId, notifType, notifTitle,
+            $"₦{amountNaira:N2} {(status == TransactionStatus.Reversed ? "reversed on" : "received on")} account {parsed.AccountNumber} from {parsed.TransferName ?? "Unknown"}. Ref: {transaction.Reference}. Status: {status}.");
+
         logger.LogInformation("Nomba webhook processed: NUBAN={AccountNumber} Ref={Ref} Status={Status}",
             parsed.AccountNumber, parsed.NombaReference, status);
         return true;

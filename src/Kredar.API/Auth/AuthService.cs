@@ -1,9 +1,10 @@
 using Kredar.API.Auth.Dto;
+using Kredar.API.Notifications;
 using Kredar.API.Tenants;
 
 namespace Kredar.API.Auth;
 
-public class AuthService(TenantRepository tenantRepo, JwtService jwtService, EmailService emailService, RefreshTokenRepository refreshTokenRepo)
+public class AuthService(TenantRepository tenantRepo, JwtService jwtService, EmailService emailService, RefreshTokenRepository refreshTokenRepo, NotificationService notif)
 {
     public async Task<RegisterResponse> RegisterAsync(RegisterRequest request)
     {
@@ -98,6 +99,10 @@ public class AuthService(TenantRepository tenantRepo, JwtService jwtService, Ema
 
         await refreshTokenRepo.AddAsync(refreshToken);
 
+        _ = notif.CreateAsync(tenant.Id, NotificationType.Login,
+            "New login",
+            $"Successful login to your Kredar account from {request.Email}.");
+
         return new AuthResponse
         {
             Token = jwtService.GenerateToken(tenant.Id, tenant.Email),
@@ -138,6 +143,10 @@ public class AuthService(TenantRepository tenantRepo, JwtService jwtService, Ema
         tenant.PasswordResetToken = null;
         tenant.PasswordResetTokenExpiry = null;
         await tenantRepo.UpdateAsync(tenant);
+
+        _ = notif.CreateAsync(tenant.Id, NotificationType.PasswordChanged,
+            "Password changed",
+            "Your Kredar account password was reset successfully.");
 
         return "Password reset successfully. You can now log in.";
     }

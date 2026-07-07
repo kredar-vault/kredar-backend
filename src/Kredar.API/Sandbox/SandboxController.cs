@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using Kredar.API.Common;
 using Kredar.API.Data;
+using Kredar.API.Onboarding;
 using Kredar.API.Webhooks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -54,6 +55,29 @@ public class SandboxController(AppDbContext db, NombaWebhookService webhook) : C
         return Ok(ApiResponse<SimulatedDepositResponse>.Success(
             new SimulatedDepositResponse("ok", kredarRef, status.ToString(), updatedAccount!.PaymentState.ToString()),
             "Deposit simulated and reconciled successfully."));
+    }
+
+    [HttpPost("approve-live")]
+    public async Task<IActionResult> ApproveLive(
+        [FromHeader(Name = "X-Admin-Secret")] string? adminSecret,
+        CancellationToken ct)
+    {
+        var expectedSecret = Environment.GetEnvironmentVariable("ADMIN_SECRET");
+        if (string.IsNullOrWhiteSpace(expectedSecret) || adminSecret != expectedSecret)
+            return Unauthorized(ApiResponse<object>.Fail("Invalid or missing admin secret."));
+
+        var tenantId = TenantContext.GetTenantId(HttpContext);
+        var app = await db.OnboardingApplications.FirstOrDefaultAsync(a => a.TenantId == tenantId, ct);
+        if (app == null)
+        {
+            app = new OnboardingApplication { TenantId = tenantId };
+            db.OnboardingApplications.Add(app);
+        }
+        app.Tier = OnboardingTier.Live;
+        app.Status = OnboardingStatus.Approved;
+        app.DecidedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync(ct);
+        return Ok(ApiResponse<object>.Success(new { tier = "Live", status = "Approved" }, "Tenant approved for live access."));
     }
 
     private static string Base64Url(byte[] bytes) =>
