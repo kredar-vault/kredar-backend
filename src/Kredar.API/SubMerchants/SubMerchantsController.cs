@@ -1,5 +1,6 @@
 using Kredar.API.Common;
 using Kredar.API.Data;
+using Kredar.API.Transactions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -78,5 +79,34 @@ public class SubMerchantsController(AppDbContext db) : ControllerBase
         db.SubMerchants.Update(sub);
         await db.SaveChangesAsync(ct);
         return Ok(ApiResponse<SubMerchant>.Success(sub, "Payout account updated."));
+    }
+
+    [HttpGet("{id:guid}/balance")]
+    public async Task<IActionResult> GetBalance(Guid id, CancellationToken ct)
+    {
+        var tenantId = TenantContext.GetTenantId(HttpContext);
+        var sub = await db.SubMerchants.FirstOrDefaultAsync(s => s.Id == id && s.TenantId == tenantId, ct)
+            ?? throw new KeyNotFoundException("Sub-merchant not found.");
+
+        var accountNumbers = await db.DedicatedAccounts
+            .Where(a => a.SubMerchantId == id)
+            .Select(a => a.AccountNumber)
+            .ToListAsync(ct);
+
+        var transactions = await db.Transactions
+            .Where(t => t.TenantId == tenantId && accountNumbers.Contains(t.DedicatedAccountNumber ?? ""))
+            .ToListAsync(ct);
+
+        var collected = transactions.Where(t => t.Status == TransactionStatus.Reconciled || t.Status == TransactionStatus.Overpaid).Sum(t => t.Amount);
+        var pending = transactions.Where(t => t.Status == TransactionStatus.Pending).Sum(t => t.Amount);
+
+        return Ok(ApiResponse<object>.Success(new
+        {
+            SubMerchantId = id,
+            Reference = sub.Reference,
+            CollectedNaira = collected,
+            PendingNaira = pending,
+            VirtualAccountCount = accountNumbers.Count
+        }));
     }
 }

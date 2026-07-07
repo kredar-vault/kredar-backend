@@ -15,6 +15,7 @@ public class DedicatedAccount
     public string? ProviderAccountId { get; set; }
     public decimal? ExpectedAmount { get; set; }
     public decimal AmountPaid { get; set; } = 0;
+    public Guid? SubMerchantId { get; set; }
     public DedicatedAccountStatus Status { get; set; } = DedicatedAccountStatus.Active;
     public PaymentState PaymentState { get; set; } = PaymentState.Unpaid;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

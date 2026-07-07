@@ -1,6 +1,7 @@
 using Kredar.API.Admin;
 using Kredar.API.ApiKeys;
 using Kredar.API.Auth;
+using Kredar.API.Billing;
 using Kredar.API.Checkout;
 using Kredar.API.Customers;
 using Kredar.API.DedicatedAccounts;
@@ -36,6 +37,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<EscrowHold> EscrowHolds => Set<EscrowHold>();
     public DbSet<MoneyRule> MoneyRules => Set<MoneyRule>();
     public DbSet<SubMerchant> SubMerchants => Set<SubMerchant>();
+    public DbSet<BillingSchedule> BillingSchedules => Set<BillingSchedule>();
+    public DbSet<BillingPeriod> BillingPeriods => Set<BillingPeriod>();
+    public DbSet<OnboardingDocument> OnboardingDocuments => Set<OnboardingDocument>();
     public DbSet<OnboardingApplication> OnboardingApplications => Set<OnboardingApplication>();
     public DbSet<AdminUser> AdminUsers => Set<AdminUser>();
     public DbSet<AdminAuditLog> AdminAuditLogs => Set<AdminAuditLog>();
@@ -177,7 +181,38 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.HasIndex(a => a.TenantId).IsUnique();
             e.Property(a => a.Status).HasConversion<string>();
             e.Property(a => a.Tier).HasConversion<string>();
+            e.Property(a => a.DeveloperKycStatus).HasConversion<string>();
+            e.Property(a => a.BusinessKybStatus).HasConversion<string>();
+            e.Property(a => a.DevGovIdType).HasConversion<string>();
             e.HasOne(a => a.Tenant).WithMany().HasForeignKey(a => a.TenantId).OnDelete(DeleteBehavior.Cascade);
+            e.HasMany(a => a.Documents).WithOne().HasForeignKey(d => d.OnboardingApplicationId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<OnboardingDocument>(e =>
+        {
+            e.HasKey(d => d.Id);
+            e.Property(d => d.DocumentType).HasConversion<string>();
+        });
+
+        modelBuilder.Entity<TeamMember>(e =>
+        {
+            e.Property(t => t.Status).HasConversion<string>();
+        });
+
+        modelBuilder.Entity<BillingSchedule>(e =>
+        {
+            e.HasKey(s => s.Id);
+            e.HasIndex(s => new { s.TenantId, s.Reference }).IsUnique().HasFilter("\"Reference\" IS NOT NULL");
+            e.Property(s => s.Interval).HasConversion<string>();
+            e.Property(s => s.Status).HasConversion<string>();
+            e.HasMany(s => s.Periods).WithOne(p => p.Schedule).HasForeignKey(p => p.ScheduleId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<BillingPeriod>(e =>
+        {
+            e.HasKey(p => p.Id);
+            e.Property(p => p.Status).HasConversion<string>();
+            e.Ignore(p => p.OutstandingKobo);
         });
 
         modelBuilder.Entity<AdminUser>(e =>

@@ -118,4 +118,63 @@ public class EmailService(IResend resend, IOptions<EmailSettings> emailOptions, 
 
         await resend.EmailSendAsync(message);
     }
+
+    public async Task SendTeamInviteEmailAsync(string toEmail, string inviteToken, string tenantName)
+    {
+        var frontendUrl = config["AppSettings:FrontendUrl"] ?? "http://localhost:3000";
+        var acceptLink = $"{frontendUrl}/auth/accept-invite?token={inviteToken}";
+
+        var message = new EmailMessage
+        {
+            From = $"{_email.FromName} <{_email.FromEmail}>",
+            To = [toEmail],
+            Subject = $"You've been invited to join {tenantName} on Kredar",
+            HtmlBody = $"""
+                <!DOCTYPE html>
+                <html>
+                <head><meta charset="UTF-8"></head>
+                <body style="margin:0;padding:0;background-color:#f4f4f4;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+                  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f4f4;padding:40px 0;">
+                    <tr><td align="center">
+                      <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;">
+                        <tr>
+                          <td align="center" style="padding:0 0 24px 0;">
+                            <span style="font-size:24px;font-weight:700;color:#011B33;">Kredar</span>
+                          </td>
+                        </tr>
+                        <tr>
+                          <td style="background:#ffffff;border-radius:8px;padding:48px;box-shadow:0 1px 3px rgba(0,0,0,0.08);">
+                            <p style="margin:0 0 16px;font-size:16px;color:#374151;">
+                              You've been invited to join <strong>{tenantName}</strong> on Kredar.
+                              Click the button below to accept your invitation.
+                            </p>
+                            <table cellpadding="0" cellspacing="0" style="margin:32px 0;">
+                              <tr>
+                                <td style="border-radius:6px;background:#011B33;">
+                                  <a href="{acceptLink}" style="display:inline-block;padding:14px 32px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:6px;">
+                                    Accept invitation
+                                  </a>
+                                </td>
+                              </tr>
+                            </table>
+                            <p style="margin:0;font-size:13px;color:#9CA3AF;">
+                              This invitation expires in <strong>72 hours</strong>. If you did not expect this, you can safely ignore it.
+                            </p>
+                          </td>
+                        </tr>
+                        <tr>
+                          <td align="center" style="padding:24px 0 0;">
+                            <p style="margin:0;font-size:12px;color:#9CA3AF;">&copy; 2026 Kredar. All rights reserved.</p>
+                          </td>
+                        </tr>
+                      </table>
+                    </td></tr>
+                  </table>
+                </body>
+                </html>
+            """
+        };
+
+        await resend.EmailSendAsync(message);
+    }
 }

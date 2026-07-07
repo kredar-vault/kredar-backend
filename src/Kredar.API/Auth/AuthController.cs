@@ -72,4 +72,11 @@ public class AuthController(AuthService authService, IConfiguration config) : Co
         var result = await authService.RefreshAsync(request);
         return Ok(ApiResponse<AuthResponse>.Success(result, "Token refreshed."));
     }
+
+    [HttpPost("logout")]
+    public async Task<IActionResult> Logout([FromBody] RefreshRequest request)
+    {
+        await authService.LogoutAsync(request.RefreshToken);
+        return NoContent();
+    }
 }

@@ -160,6 +160,13 @@ public class AuthService(TenantRepository tenantRepo, JwtService jwtService, Ema
         return "Verification email resent. Please check your inbox.";
     }
 
+    public async Task LogoutAsync(string refreshToken)
+    {
+        var token = await refreshTokenRepo.FindByTokenAsync(refreshToken);
+        if (token is not null)
+            await refreshTokenRepo.RevokeAsync(token);
+    }
+
     public async Task<AuthResponse> RefreshAsync(RefreshRequest request)
     {
         var refreshToken = await refreshTokenRepo.FindByTokenAsync(request.RefreshToken)

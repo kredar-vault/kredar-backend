@@ -121,6 +121,9 @@ builder.Services.AddScoped<TransactionService>();
 builder.Services.AddScoped<TeamRepository>();
 builder.Services.AddScoped<TeamService>();
 
+// Billing
+builder.Services.AddScoped<Kredar.API.Billing.BillingService>();
+
 // Dedicated account services
 builder.Services.AddScoped<DedicatedAccountRepository>();
 builder.Services.AddScoped<DedicatedAccountService>();
