@@ -45,9 +45,43 @@ public class RequestInfoRequest
 
 [ApiController]
 [Route("api/v1/admin")]
-public class AdminController(AppDbContext db, IOptions<JwtSettings> jwtOptions) : ControllerBase
+public class AdminController(AppDbContext db, IOptions<JwtSettings> jwtOptions, IConfiguration config) : ControllerBase
 {
     private readonly JwtSettings _jwt = jwtOptions.Value;
+
+    // -------------------------------------------------------------------------
+    // Bootstrap — create the very first admin (requires X-Bootstrap-Secret header)
+    // -------------------------------------------------------------------------
+
+    [HttpPost("bootstrap")]
+    [AllowAnonymous]
+    public async Task<IActionResult> Bootstrap([FromBody] CreateAdminRequest request, CancellationToken ct)
+    {
+        var secret = config["AdminSettings:BootstrapSecret"];
+        if (string.IsNullOrWhiteSpace(secret))
+            return NotFound();
+
+        var provided = Request.Headers["X-Bootstrap-Secret"].FirstOrDefault();
+        if (provided != secret)
+            return Unauthorized(ApiResponse<object>.Fail("Invalid bootstrap secret."));
+
+        var exists = await db.AdminUsers.AnyAsync(a => a.Email == request.Email, ct);
+        if (exists)
+            return BadRequest(ApiResponse<object>.Fail("Admin with this email already exists."));
+
+        var role = request.Role.Equals("SuperAdmin", StringComparison.OrdinalIgnoreCase)
+            ? AdminRole.SuperAdmin : AdminRole.Admin;
+
+        var admin = new AdminUser
+        {
+            Email = request.Email,
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password, workFactor: 10),
+            Role = role
+        };
+        db.AdminUsers.Add(admin);
+        await db.SaveChangesAsync(ct);
+        return Ok(ApiResponse<object>.Success(new { admin.Id, admin.Email, role = admin.Role.ToString() }, "Admin created."));
+    }
 
     // -------------------------------------------------------------------------
     // Auth
