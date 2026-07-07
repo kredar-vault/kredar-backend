@@ -6,8 +6,10 @@ namespace Kredar.API.Auth;
 
 [ApiController]
 [Route("api/v1/auth")]
-public class AuthController(AuthService authService) : ControllerBase
+public class AuthController(AuthService authService, IConfiguration config) : ControllerBase
 {
+    private string FrontendUrl => config["AppSettings:FrontendUrl"] ?? "http://localhost:3000";
+
     [HttpPost("register")]
     public async Task<IActionResult> Register([FromBody] RegisterRequest request)
     {
@@ -18,8 +20,15 @@ public class AuthController(AuthService authService) : ControllerBase
     [HttpGet("verify-email")]
     public async Task<IActionResult> VerifyEmail([FromQuery] string token)
     {
-        var message = await authService.VerifyEmailAsync(token);
-        return Ok(ApiResponse<string>.Success(message));
+        try
+        {
+            await authService.VerifyEmailAsync(token);
+            return Redirect($"{FrontendUrl}/auth/email-verified?verified=true");
+        }
+        catch
+        {
+            return Redirect($"{FrontendUrl}/auth/email-verified?verified=false");
+        }
     }
 
     [HttpPost("resend-verification")]
