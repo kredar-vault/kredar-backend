@@ -191,11 +191,32 @@ public class AdminController(AppDbContext db, IOptions<JwtSettings> jwtOptions, 
     [Authorize(Policy = "AdminOnly")]
     public async Task<IActionResult> ListTenants([FromQuery] string? status, CancellationToken ct)
     {
-        OnboardingStatus? filter = Enum.TryParse<OnboardingStatus>(status, true, out var s) ? s : null;
-        var query = db.OnboardingApplications.Include(a => a.Tenant).AsQueryable();
-        if (filter.HasValue) query = query.Where(a => a.Status == filter.Value);
-        var apps = await query.OrderByDescending(a => a.SubmittedAt).ToListAsync(ct);
-        return Ok(ApiResponse<object>.Success(apps));
+        var tenants = await db.Tenants.OrderByDescending(t => t.CreatedAt).ToListAsync(ct);
+        var tenantIds = tenants.Select(t => t.Id).ToList();
+        var appMap = await db.OnboardingApplications
+            .Where(a => tenantIds.Contains(a.TenantId))
+            .ToDictionaryAsync(a => a.TenantId, ct);
+
+        var result = tenants.Select(t =>
+        {
+            appMap.TryGetValue(t.Id, out var app);
+            return new
+            {
+                tenantId = t.Id,
+                email = t.Email,
+                businessName = t.BusinessName,
+                isVerified = t.IsVerified,
+                isSuspended = t.IsSuspended,
+                createdAt = t.CreatedAt,
+                onboardingStatus = app?.Status.ToString() ?? "NotStarted",
+                submittedAt = app?.SubmittedAt,
+            };
+        });
+
+        if (!string.IsNullOrWhiteSpace(status))
+            result = result.Where(r => r.onboardingStatus.Equals(status, StringComparison.OrdinalIgnoreCase));
+
+        return Ok(ApiResponse<object>.Success(result.ToList()));
     }
 
     [HttpGet("tenants/{tenantId:guid}")]
