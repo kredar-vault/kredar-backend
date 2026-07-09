@@ -34,6 +34,7 @@ public class ApiKeyService(ApiKeyRepository repo, AppDbContext db, NotificationS
             Label = label.Trim(),
             ClientId = clientId,
             SecretHash = BCrypt.Net.BCrypt.HashPassword(secret, workFactor: 6),
+            ClientSecret = secret,
             Mode = mode
         };
 

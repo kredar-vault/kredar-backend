@@ -122,7 +122,7 @@ public class NombaWebhookService(
         var notifType = status == TransactionStatus.Reversed ? NotificationType.PaymentFailed : NotificationType.PaymentReceived;
         var notifTitle = status == TransactionStatus.Reversed ? "Payment reversed" : "Payment received";
         _ = notif.CreateAsync(account.TenantId, notifType, notifTitle,
-            $"₦{amountNaira:N2} {(status == TransactionStatus.Reversed ? "reversed on" : "received on")} account {parsed.AccountNumber} from {parsed.TransferName ?? "Unknown"}. Ref: {transaction.Reference}. Status: {status}.");
+            $"₦{amountNaira:N2} {(status == TransactionStatus.Reversed ? "reversed on" : "received on")} account {parsed.AccountNumber} from {parsed.TransferName ?? "Unknown"}. Ref: {transaction.Reference}.");
 
         logger.LogInformation("Nomba webhook processed: NUBAN={AccountNumber} Ref={Ref} Status={Status}",
             parsed.AccountNumber, parsed.NombaReference, status);
