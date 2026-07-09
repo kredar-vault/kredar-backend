@@ -35,12 +35,14 @@ public class InsightsService(AppDbContext db)
             .Where(t => t.Status == TransferStatus.Succeeded)
             .SumAsync(t => (decimal?)t.Amount, ct) ?? 0;
 
+        var totalFees = await txns.SumAsync(t => (decimal?)t.Fee, ct) ?? 0;
         var rate = totalExpected > 0 ? Math.Round((double)(totalPaid / totalExpected) * 100, 1) : 0;
 
         return new InsightsResponse
         {
             DedicatedAccounts = vaCount,
-            AvailableBalance = totalPaid - totalTransferred,
+            AvailableBalance = totalPaid - totalFees - totalTransferred,
+            TotalFees = totalFees,
             TotalTransactions = txnCount,
             TotalCollected = totalPaid,
             TotalExpected = totalExpected,
@@ -63,14 +65,19 @@ public class InsightsService(AppDbContext db)
             .Where(a => a.TenantId == tenantId)
             .SumAsync(a => (decimal?)a.AmountPaid, ct) ?? 0;
 
+        var totalFees = await db.Transactions
+            .Where(t => t.TenantId == tenantId)
+            .SumAsync(t => (decimal?)t.Fee, ct) ?? 0;
+
         var totalTransferred = await db.Transfers
             .Where(t => t.TenantId == tenantId && t.Status == TransferStatus.Succeeded)
             .SumAsync(t => (decimal?)t.Amount, ct) ?? 0;
 
         return new BalanceResponse
         {
-            AvailableBalance = totalCollected - totalTransferred,
+            AvailableBalance = totalCollected - totalFees - totalTransferred,
             TotalCollected = totalCollected,
+            TotalFees = totalFees,
             TotalTransferred = totalTransferred,
             Currency = "NGN",
         };

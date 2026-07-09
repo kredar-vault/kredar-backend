@@ -4,6 +4,7 @@ public class BalanceResponse
 {
     public decimal AvailableBalance { get; set; }
     public decimal TotalCollected { get; set; }
+    public decimal TotalFees { get; set; }
     public decimal TotalTransferred { get; set; }
     public string Currency { get; set; } = "NGN";
 }
@@ -11,6 +12,7 @@ public class BalanceResponse
 public class InsightsResponse
 {
     public decimal AvailableBalance { get; set; }
+    public decimal TotalFees { get; set; }
     public int DedicatedAccounts { get; set; }
     public int TotalTransactions { get; set; }
     public decimal TotalCollected { get; set; }
