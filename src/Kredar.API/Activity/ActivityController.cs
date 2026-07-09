@@ -80,6 +80,28 @@ public class ActivityController(AppDbContext db) : ControllerBase
 
         return Ok(ApiResponse<object>.Success(new { total, page, pageSize, items = all }));
     }
+
+    [HttpGet("stats")]
+    public async Task<IActionResult> Stats(CancellationToken ct)
+    {
+        var txCount = await db.Transactions.CountAsync(t => t.TenantId == TenantId, ct);
+        var trCount = await db.Transfers.CountAsync(t => t.TenantId == TenantId, ct);
+        var whCount = await db.WebhookDeliveries.CountAsync(d => d.TenantId == TenantId, ct);
+
+        var since7d = DateTime.UtcNow.AddDays(-7);
+        var txRecent = await db.Transactions.CountAsync(t => t.TenantId == TenantId && t.CreatedAt >= since7d, ct);
+        var trRecent = await db.Transfers.CountAsync(t => t.TenantId == TenantId && t.CreatedAt >= since7d, ct);
+        var whRecent = await db.WebhookDeliveries.CountAsync(d => d.TenantId == TenantId && d.CreatedAt >= since7d, ct);
+
+        return Ok(ApiResponse<object>.Success(new
+        {
+            total = txCount + trCount + whCount,
+            payIns = txCount,
+            payOuts = trCount,
+            webhookEvents = whCount,
+            last7Days = new { payIns = txRecent, payOuts = trRecent, webhookEvents = whRecent },
+        }));
+    }
 }
 
 public class ActivityEvent

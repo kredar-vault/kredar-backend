@@ -241,6 +241,7 @@ app.UseSwagger();
 app.UseSwaggerUI();
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseMiddleware<Kredar.API.ApiLogs.ApiRequestLoggingMiddleware>();
 app.MapControllers();
 
 app.MapHealthChecks("/health");

@@ -46,6 +46,21 @@ public class CustomerNotesController(AppDbContext db) : ControllerBase
         return Ok(ApiResponse<object>.Success(new { note.Id, note.Content, note.CreatedByEmail, note.CreatedAt }));
     }
 
+    [HttpPatch("~/api/v1/customers/{customerId2:guid}/notes/{noteId:guid}")]
+    public async Task<IActionResult> Update(Guid customerId2, Guid noteId, [FromBody] CreateNoteRequest req, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(req.Content))
+            return BadRequest(ApiResponse<object>.Fail("Content is required."));
+
+        var note = await db.CustomerNotes
+            .FirstOrDefaultAsync(n => n.Id == noteId && n.CustomerId == customerId2 && n.TenantId == TenantId, ct);
+        if (note is null) return NotFound(ApiResponse<object>.Fail("Note not found."));
+
+        note.Content = req.Content.Trim();
+        await db.SaveChangesAsync(ct);
+        return Ok(ApiResponse<object>.Success(new { note.Id, note.Content, note.CreatedByEmail, note.CreatedAt }));
+    }
+
     [HttpDelete("~/api/v1/notes/{noteId:guid}")]
     public async Task<IActionResult> Delete(Guid noteId, CancellationToken ct)
     {

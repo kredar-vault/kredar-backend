@@ -1,5 +1,6 @@
 using Kredar.API.Admin;
 using Kredar.API.ApiKeys;
+using Kredar.API.ApiLogs;
 using Kredar.API.Auth;
 using Kredar.API.Billing;
 using Kredar.API.Notifications;
@@ -46,6 +47,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<AdminUser> AdminUsers => Set<AdminUser>();
     public DbSet<AdminAuditLog> AdminAuditLogs => Set<AdminAuditLog>();
     public DbSet<CustomerNote> CustomerNotes => Set<CustomerNote>();
+    public DbSet<ApiRequestLog> ApiRequestLogs => Set<ApiRequestLog>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -242,6 +244,13 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         {
             e.HasKey(n => n.Id);
             e.HasIndex(n => new { n.TenantId, n.CustomerId });
+        });
+
+        modelBuilder.Entity<ApiRequestLog>(e =>
+        {
+            e.HasKey(l => l.Id);
+            e.HasIndex(l => new { l.TenantId, l.CreatedAt });
+            e.HasIndex(l => l.CreatedAt);
         });
     }
 }
