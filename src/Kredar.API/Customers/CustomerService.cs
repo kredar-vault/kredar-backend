@@ -1,8 +1,9 @@
 using Kredar.API.Customers.Dto;
+using Kredar.API.Notifications;
 
 namespace Kredar.API.Customers;
 
-public class CustomerService(CustomerRepository customerRepo)
+public class CustomerService(CustomerRepository customerRepo, NotificationService notif)
 {
     public async Task<List<CustomerResponse>> GetAllAsync(Guid tenantId) =>
         (await customerRepo.GetAllAsync(tenantId)).Select(MapToResponse).ToList();
@@ -49,6 +50,9 @@ public class CustomerService(CustomerRepository customerRepo)
         };
 
         await customerRepo.AddAsync(customer);
+        _ = notif.CreateAsync(tenantId, NotificationType.CustomerCreated,
+            "New customer added",
+            $"{request.FirstName} {request.LastName} ({request.Email}) was added as a customer.");
         return MapToResponse(customer);
     }
 

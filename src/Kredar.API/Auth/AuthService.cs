@@ -1,9 +1,10 @@
 using Kredar.API.Auth.Dto;
+using Kredar.API.Notifications;
 using Kredar.API.Tenants;
 
 namespace Kredar.API.Auth;
 
-public class AuthService(TenantRepository tenantRepo, JwtService jwtService, EmailService emailService, RefreshTokenRepository refreshTokenRepo)
+public class AuthService(TenantRepository tenantRepo, JwtService jwtService, EmailService emailService, RefreshTokenRepository refreshTokenRepo, NotificationService notif)
 {
     public async Task<RegisterResponse> RegisterAsync(RegisterRequest request)
     {
@@ -98,6 +99,10 @@ public class AuthService(TenantRepository tenantRepo, JwtService jwtService, Ema
 
         await refreshTokenRepo.AddAsync(refreshToken);
 
+        _ = notif.CreateAsync(tenant.Id, NotificationType.Login,
+            "New login",
+            $"Successful login to your Kredar account from {request.Email}.");
+
         return new AuthResponse
         {
             Token = jwtService.GenerateToken(tenant.Id, tenant.Email),
@@ -105,6 +110,70 @@ public class AuthService(TenantRepository tenantRepo, JwtService jwtService, Ema
             BusinessName = tenant.BusinessName,
             Email = tenant.Email
         };
+    }
+
+    public async Task ForgotPasswordAsync(ForgotPasswordRequest request)
+    {
+        var tenant = await tenantRepo.FindByEmailAsync(request.Email);
+        if (tenant == null) return; // silent — don't reveal if email exists
+
+        var code = Random.Shared.Next(100000, 999999).ToString();
+        tenant.PasswordResetToken = code;
+        tenant.PasswordResetTokenExpiry = DateTime.UtcNow.AddMinutes(15);
+        await tenantRepo.UpdateAsync(tenant);
+
+        _ = emailService.SendPasswordResetEmailAsync(tenant.Email, code);
+    }
+
+    public async Task<string> ResetPasswordAsync(ResetPasswordRequest request)
+    {
+        if (request.NewPassword != request.ConfirmPassword)
+            throw new Exception("Passwords do not match.");
+
+        var tenant = await tenantRepo.FindByEmailAsync(request.Email)
+            ?? throw new Exception("Invalid request.");
+
+        if (tenant.PasswordResetToken == null || tenant.PasswordResetTokenExpiry < DateTime.UtcNow)
+            throw new Exception("Code has expired. Please request a new one.");
+
+        if (tenant.PasswordResetToken != request.Code)
+            throw new Exception("Invalid code. Please try again.");
+
+        tenant.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword, workFactor: 10);
+        tenant.PasswordResetToken = null;
+        tenant.PasswordResetTokenExpiry = null;
+        await tenantRepo.UpdateAsync(tenant);
+
+        _ = notif.CreateAsync(tenant.Id, NotificationType.PasswordChanged,
+            "Password changed",
+            "Your Kredar account password was reset successfully.");
+
+        return "Password reset successfully. You can now log in.";
+    }
+
+    public async Task<string> ResendVerificationAsync(string email)
+    {
+        var tenant = await tenantRepo.FindByEmailAsync(email)
+            ?? throw new Exception("Email not found.");
+
+        if (tenant.IsVerified)
+            throw new Exception("This email is already verified.");
+
+        var token = Guid.NewGuid().ToString("N");
+        tenant.EmailVerificationToken = token;
+        tenant.EmailVerificationTokenExpiry = DateTime.UtcNow.AddHours(24);
+        await tenantRepo.UpdateAsync(tenant);
+
+        _ = emailService.SendVerificationEmailAsync(tenant.Email, token);
+
+        return "Verification email resent. Please check your inbox.";
+    }
+
+    public async Task LogoutAsync(string refreshToken)
+    {
+        var token = await refreshTokenRepo.FindByTokenAsync(refreshToken);
+        if (token is not null)
+            await refreshTokenRepo.RevokeAsync(token);
     }
 
     public async Task<AuthResponse> RefreshAsync(RefreshRequest request)

@@ -1,0 +1,15 @@
+# gitleaks configuration for kredar-backend.
+# Extends the built-in ruleset and allowlists non-secret placeholders in
+# appsettings.json (real values are injected from the environment at runtime).
+title = "Kredar gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Config placeholders — never real secrets (real values come from env)."
+regexes = [
+  '''CHANGE_THIS_TO_A_LONG_RANDOM_SECRET_KEY_MIN_32_CHARS''',
+  '''YOUR_NOMBA_[A-Z_]+''',
+  '''Password=postgres''',
+]

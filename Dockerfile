@@ -12,4 +12,6 @@ RUN dotnet publish -c Release -o /app/publish
 FROM base AS final
 WORKDIR /app
 COPY --from=build /app/publish .
+# Run as the image's built-in non-root user (hardening; satisfies Trivy DS-0002).
+USER $APP_UID
 ENTRYPOINT ["dotnet", "Kredar.API.dll"]
