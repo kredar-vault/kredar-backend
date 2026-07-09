@@ -63,21 +63,24 @@ public class TransferService(TransferRepository repo, NombaClient nombaClient, N
             transfer.Status = TransferStatus.Succeeded;
             transfer.ProviderReference = result.Reference;
             transfer.CompletedAt = DateTime.UtcNow;
-            _ = notif.CreateAsync(tenantId, NotificationType.TransferCompleted,
-                "Transfer successful",
-                $"₦{req.Amount:N2} sent to {recipientName ?? req.AccountNumber}. Ref: {reference}.");
         }
         else
         {
             transfer.Status = TransferStatus.Failed;
             transfer.FailureReason = result.Error;
             transfer.CompletedAt = DateTime.UtcNow;
-            _ = notif.CreateAsync(tenantId, NotificationType.TransferFailed,
-                "Transfer failed",
-                $"₦{req.Amount:N2} transfer to {recipientName ?? req.AccountNumber} failed. Reason: {result.Error}. Ref: {reference}.");
         }
 
         await repo.UpdateAsync(transfer);
+
+        if (result.Success)
+            await notif.CreateAsync(tenantId, NotificationType.TransferCompleted,
+                "Transfer successful",
+                $"₦{req.Amount:N2} sent to {recipientName ?? req.AccountNumber}. Ref: {reference}.");
+        else
+            await notif.CreateAsync(tenantId, NotificationType.TransferFailed,
+                "Transfer failed",
+                $"₦{req.Amount:N2} transfer to {recipientName ?? req.AccountNumber} failed. Reason: {result.Error}. Ref: {reference}.");
         return Map(transfer);
     }
 
