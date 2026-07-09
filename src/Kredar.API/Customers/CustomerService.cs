@@ -53,7 +53,11 @@ public class CustomerService(CustomerRepository customerRepo, NotificationServic
 
         await customerRepo.AddAsync(customer);
 
-        _ = dvaService.CreateAsync(tenantId, new CreateDedicatedAccountRequest { CustomerId = customer.Id }, CancellationToken.None);
+        try
+        {
+            await dvaService.CreateAsync(tenantId, new CreateDedicatedAccountRequest { CustomerId = customer.Id });
+        }
+        catch { /* DVA provisioning failure is non-fatal; customer can retry from their detail page */ }
 
         _ = notif.CreateAsync(tenantId, NotificationType.CustomerCreated,
             "New customer added",
