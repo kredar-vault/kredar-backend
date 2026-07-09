@@ -32,7 +32,7 @@ public class ApiKeysController(ApiKeyService apiKeys) : ControllerBase
     {
         var tenantId = TenantContext.GetTenantId(HttpContext);
         var keys = await apiKeys.ListAsync(tenantId);
-        var response = keys.Select(k => new ApiKeyResponse(k.Id, k.ClientId, null, k.Mode.ToString(), k.Label, k.Status.ToString(), k.LastUsedAt, k.CreatedAt));
+        var response = keys.Select(k => new ApiKeyResponse(k.Id, k.ClientId, k.ClientSecret, k.Mode.ToString(), k.Label, k.Status.ToString(), k.LastUsedAt, k.CreatedAt));
         return Ok(ApiResponse<IEnumerable<ApiKeyResponse>>.Success(response));
     }
 
