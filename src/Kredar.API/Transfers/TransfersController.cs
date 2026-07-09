@@ -22,6 +22,8 @@ public class TransfersController(TransferService service) : ControllerBase
     {
         var tenantId = TenantContext.GetTenantId(HttpContext);
         var result = await service.InitiateAsync(tenantId, req, ct);
+        if (result.Status == "Failed")
+            return BadRequest(ApiResponse<TransferResponse>.Fail(result.FailureReason ?? "Transfer failed."));
         return Ok(ApiResponse<TransferResponse>.Success(result, "Transfer initiated."));
     }
 

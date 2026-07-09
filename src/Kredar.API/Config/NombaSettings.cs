@@ -11,4 +11,5 @@ public class NombaSettings
     public string WebhookSignatureHeader { get; set; } = "nomba-signature";
     public string TimestampHeader { get; set; } = "nomba-timestamp";
     public int TokenRefreshSeconds { get; set; } = 3300;
+    public bool SimulateTransfers { get; set; } = false;
 }
