@@ -1,11 +1,20 @@
+using Kredar.API.Config;
+using Kredar.API.Insights;
 using Kredar.API.Nomba;
 using Kredar.API.Notifications;
 using Kredar.API.Transfers.Dto;
+using Microsoft.Extensions.Options;
 
 namespace Kredar.API.Transfers;
 
-public class TransferService(TransferRepository repo, NombaClient nombaClient, NotificationService notif)
+public class TransferService(
+    TransferRepository repo,
+    NombaClient nombaClient,
+    NotificationService notif,
+    InsightsService insightsService,
+    IOptions<NombaSettings> nombaOpts)
 {
+    private readonly bool _simulateTransfers = nombaOpts.Value.SimulateTransfers;
     public async Task<BankLookupResponse> LookupAsync(string accountNumber, string bankCode, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(accountNumber) || string.IsNullOrWhiteSpace(bankCode))
@@ -28,6 +37,10 @@ public class TransferService(TransferRepository repo, NombaClient nombaClient, N
             throw new ArgumentException("Amount must be positive.");
 
         var reference = req.MerchantTxRef.Trim();
+
+        var balance = await insightsService.GetBalanceAsync(tenantId, ct);
+        if (req.Amount > balance.AvailableBalance)
+            throw new ArgumentException($"Insufficient balance. Available: ₦{balance.AvailableBalance:N2}");
 
         var existing = await repo.FindByRefAsync(tenantId, reference);
         if (existing is not null)
@@ -54,6 +67,18 @@ public class TransferService(TransferRepository repo, NombaClient nombaClient, N
             await repo.UpdateAsync(transfer);
         }
         catch { }
+
+        if (_simulateTransfers)
+        {
+            transfer.Status = TransferStatus.Succeeded;
+            transfer.ProviderReference = "sim-" + Guid.NewGuid().ToString("N")[..12];
+            transfer.CompletedAt = DateTime.UtcNow;
+            await repo.UpdateAsync(transfer);
+            await notif.CreateAsync(tenantId, NotificationType.TransferCompleted,
+                "Transfer successful",
+                $"₦{req.Amount:N2} sent to {recipientName ?? req.AccountNumber}. Ref: {reference}.");
+            return Map(transfer);
+        }
 
         var result = await nombaClient.InitiateTransferAsync(
             reference, req.Amount, req.AccountNumber.Trim(), req.BankCode.Trim(), recipientName, req.Narration, ct);
