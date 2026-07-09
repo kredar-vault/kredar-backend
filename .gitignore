@@ -1,0 +1,37 @@
+# Build output
+bin/
+obj/
+
+# Visual Studio / Rider
+.vs/
+.idea/
+*.user
+*.suo
+
+# dotnet publish output
+publish/
+
+# Environment & secrets — NEVER commit these
+appsettings.Development.json
+.env
+*.env
+.env.*
+!.env.example
+
+# EF Core migrations temp files
+*.db
+*.sqlite
+
+# Docker
+.dockerignore
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Docs
+PROJECT_STRUCTURE.md
