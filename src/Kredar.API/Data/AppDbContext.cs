@@ -45,6 +45,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<OnboardingApplication> OnboardingApplications => Set<OnboardingApplication>();
     public DbSet<AdminUser> AdminUsers => Set<AdminUser>();
     public DbSet<AdminAuditLog> AdminAuditLogs => Set<AdminAuditLog>();
+    public DbSet<CustomerNote> CustomerNotes => Set<CustomerNote>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -235,6 +236,12 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         {
             e.HasKey(a => a.Id);
             e.HasIndex(a => a.CreatedAt);
+        });
+
+        modelBuilder.Entity<CustomerNote>(e =>
+        {
+            e.HasKey(n => n.Id);
+            e.HasIndex(n => new { n.TenantId, n.CustomerId });
         });
     }
 }
