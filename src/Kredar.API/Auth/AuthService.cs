@@ -20,7 +20,7 @@ public class AuthService(TenantRepository tenantRepo, JwtService jwtService, Ema
         var tenant = new Tenant
         {
             Email = request.Email,
-            PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password, workFactor: 10),
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password, workFactor: 8),
             IsVerified = false,
             EmailVerificationToken = verificationToken,
             EmailVerificationTokenExpiry = DateTime.UtcNow.AddHours(24)
@@ -139,7 +139,7 @@ public class AuthService(TenantRepository tenantRepo, JwtService jwtService, Ema
         if (tenant.PasswordResetToken != request.Code)
             throw new Exception("Invalid code. Please try again.");
 
-        tenant.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword, workFactor: 10);
+        tenant.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword, workFactor: 8);
         tenant.PasswordResetToken = null;
         tenant.PasswordResetTokenExpiry = null;
         await tenantRepo.UpdateAsync(tenant);
