@@ -138,6 +138,10 @@ builder.Services.AddScoped<TransferService>();
 // Insights
 builder.Services.AddScoped<InsightsService>();
 
+// Balance & Revenue
+builder.Services.AddScoped<Kredar.API.Balance.BalanceService>();
+builder.Services.AddScoped<Kredar.API.Revenue.RevenueService>();
+
 // Webhook services
 builder.Services.AddScoped<WebhookEndpointRepository>();
 builder.Services.AddScoped<WebhookDeliveryRepository>();
