@@ -23,6 +23,17 @@ public class TenantService(TenantRepository tenantRepo)
         return MapToResponse(tenant);
     }
 
+    public async Task<TenantProfileResponse> SetBusinessTypeAsync(Guid tenantId, string businessType)
+    {
+        var tenant = await tenantRepo.FindByIdAsync(tenantId)
+            ?? throw new KeyNotFoundException("Tenant not found.");
+
+        tenant.BusinessType = businessType;
+        await tenantRepo.UpdateAsync(tenant);
+
+        return MapToResponse(tenant);
+    }
+
     public async Task<TenantProfileResponse> GetProfileAsync(Guid tenantId)
     {
         var tenant = await tenantRepo.FindByIdAsync(tenantId)

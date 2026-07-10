@@ -25,4 +25,12 @@ public class TenantController(TenantService tenantService) : ControllerBase
         var result = await tenantService.UpdateProfileAsync(tenantId, request);
         return Ok(ApiResponse<TenantProfileResponse>.Success(result, "Profile updated successfully."));
     }
+
+    [HttpPatch("business-type")]
+    public async Task<IActionResult> SetBusinessType([FromBody] SetBusinessTypeRequest request)
+    {
+        var tenantId = TenantContext.GetTenantId(HttpContext);
+        var result = await tenantService.SetBusinessTypeAsync(tenantId, request.BusinessType);
+        return Ok(ApiResponse<TenantProfileResponse>.Success(result, "Business type saved."));
+    }
 }

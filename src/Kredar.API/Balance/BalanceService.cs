@@ -1,5 +1,6 @@
 using Kredar.API.Balance.Dto;
 using Kredar.API.Data;
+using Kredar.API.Tenants;
 using Kredar.API.Transactions;
 using Kredar.API.Transfers;
 using Kredar.API.Transfers.Dto;
@@ -96,6 +97,14 @@ public class BalanceService(AppDbContext db, TransferService transferService)
 
     public async Task<object> WithdrawAsync(Guid tenantId, WithdrawRequest req, CancellationToken ct = default)
     {
+        var tenant = await db.Set<Tenant>().FindAsync([tenantId], ct);
+        var businessType = (tenant?.BusinessType ?? "").ToUpperInvariant();
+
+        if (businessType.Contains("PLATFORM"))
+            throw new InvalidOperationException(
+                "Platform accounts cannot withdraw from the collected balance. " +
+                "Use POST /api/v1/revenue/withdraw to withdraw your earned revenue.");
+
         var balance = await GetFullBalanceAsync(tenantId, ct);
 
         if (!balance.CanWithdraw)
@@ -103,7 +112,7 @@ public class BalanceService(AppDbContext db, TransferService transferService)
 
         if (req.Amount > balance.AvailableBalance)
             throw new InvalidOperationException(
-                $"Insufficient balance. Available: {balance.AvailableBalance:N2} NGN.");
+                $"Insufficient balance. Available: ₦{balance.AvailableBalance:N2}.");
 
         var transferReq = new CreateTransferRequest
         {
