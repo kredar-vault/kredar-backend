@@ -76,7 +76,7 @@ public class AdminController(AppDbContext db, IOptions<JwtSettings> jwtOptions, 
         var admin = new AdminUser
         {
             Email = request.Email,
-            PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password, workFactor: 10),
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password, workFactor: 8),
             Role = role
         };
         db.AdminUsers.Add(admin);
@@ -175,7 +175,7 @@ public class AdminController(AppDbContext db, IOptions<JwtSettings> jwtOptions, 
         var admin = new AdminUser
         {
             Email = request.Email,
-            PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password, workFactor: 10),
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password, workFactor: 8),
             Role = role
         };
         db.AdminUsers.Add(admin);
