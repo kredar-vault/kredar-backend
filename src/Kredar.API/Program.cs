@@ -37,7 +37,7 @@ builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("JwtSet
 builder.Services.Configure<NombaSettings>(builder.Configuration.GetSection("NombaSettings"));
 builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("Resend"));
 
-// JWT Authentication
+// JWT Authentication + API Key Authentication
 var jwtSettings = builder.Configuration.GetSection("JwtSettings").Get<JwtSettings>()!;
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -52,12 +52,19 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidAudience = jwtSettings.Audience,
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings.Secret))
         };
-    });
+    })
+    .AddScheme<ApiKeyAuthOptions, ApiKeyAuthHandler>("ApiKey", _ => { });
 
 builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy("AdminOnly", policy =>
         policy.RequireClaim("scope", "admin"));
+
+    // Allow both JWT and API key on any [Authorize] endpoint
+    options.DefaultPolicy = new Microsoft.AspNetCore.Authorization.AuthorizationPolicyBuilder(
+            JwtBearerDefaults.AuthenticationScheme, "ApiKey")
+        .RequireAuthenticatedUser()
+        .Build();
 });
 
 // CORS
