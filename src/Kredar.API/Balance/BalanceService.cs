@@ -27,7 +27,8 @@ public class BalanceService(AppDbContext db, TransferService transferService)
             .SumAsync(t => (decimal?)t.Fee, ct) ?? 0;
 
         var totalWithdrawn = await db.Transfers
-            .Where(t => t.TenantId == tenantId && t.Status == TransferStatus.Succeeded)
+            .Where(t => t.TenantId == tenantId &&
+                        (t.Status == TransferStatus.Succeeded || t.Status == TransferStatus.Pending))
             .SumAsync(t => (decimal?)t.Amount, ct) ?? 0;
 
         var pendingBalance = await db.Transactions
@@ -76,7 +77,8 @@ public class BalanceService(AppDbContext db, TransferService transferService)
             .ToListAsync(ct);
 
         var debits = await db.Transfers
-            .Where(t => t.TenantId == tenantId && t.Status == TransferStatus.Succeeded)
+            .Where(t => t.TenantId == tenantId &&
+                        (t.Status == TransferStatus.Succeeded || t.Status == TransferStatus.Pending))
             .OrderByDescending(t => t.CreatedAt)
             .Take(50)
             .Select(t => new BalanceActivityItem

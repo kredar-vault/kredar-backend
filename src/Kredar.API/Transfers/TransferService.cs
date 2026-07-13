@@ -89,6 +89,11 @@ public class TransferService(
             transfer.ProviderReference = result.Reference;
             transfer.CompletedAt = DateTime.UtcNow;
         }
+        else if (result.IsPending)
+        {
+            transfer.Status = TransferStatus.Pending;
+            transfer.ProviderReference = result.Reference;
+        }
         else
         {
             transfer.Status = TransferStatus.Failed;
@@ -102,6 +107,10 @@ public class TransferService(
             await notif.CreateAsync(tenantId, NotificationType.TransferCompleted,
                 "Transfer successful",
                 $"₦{req.Amount:N2} sent to {recipientName ?? req.AccountNumber}. Ref: {reference}.");
+        else if (result.IsPending)
+            await notif.CreateAsync(tenantId, NotificationType.TransferCompleted,
+                "Transfer processing",
+                $"₦{req.Amount:N2} transfer to {recipientName ?? req.AccountNumber} is being processed. Ref: {reference}.");
         else
             await notif.CreateAsync(tenantId, NotificationType.TransferFailed,
                 "Transfer failed",
