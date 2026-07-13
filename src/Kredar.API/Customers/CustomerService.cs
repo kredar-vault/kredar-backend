@@ -5,7 +5,7 @@ using Kredar.API.Notifications;
 
 namespace Kredar.API.Customers;
 
-public class CustomerService(CustomerRepository customerRepo, NotificationService notif, DedicatedAccountService dvaService)
+public class CustomerService(CustomerRepository customerRepo, NotificationService notif, DedicatedAccountService dvaService, ILogger<CustomerService> logger)
 {
     public async Task<List<CustomerResponse>> GetAllAsync(Guid tenantId) =>
         (await customerRepo.GetAllAsync(tenantId)).Select(MapToResponse).ToList();
@@ -57,7 +57,10 @@ public class CustomerService(CustomerRepository customerRepo, NotificationServic
         {
             await dvaService.CreateAsync(tenantId, new CreateDedicatedAccountRequest { CustomerId = customer.Id });
         }
-        catch { /* DVA provisioning failure is non-fatal; customer can retry from their detail page */ }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "DVA provisioning failed for customer {CustomerId} ({Email}) — Nomba error: {Message}", customer.Id, customer.Email, ex.Message);
+        }
 
         _ = notif.CreateAsync(tenantId, NotificationType.CustomerCreated,
             "New customer added",
