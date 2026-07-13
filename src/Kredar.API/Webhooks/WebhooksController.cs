@@ -36,7 +36,8 @@ public class WebhooksController(
         var signature = Request.Headers[settings.WebhookSignatureHeader].FirstOrDefault();
         var timestamp = Request.Headers[settings.TimestampHeader].FirstOrDefault();
 
-        await nombaWebhookService.ProcessAsync(rawBody, signature, timestamp);
+        var processed = await nombaWebhookService.ProcessAsync(rawBody, signature, timestamp);
+        if (!processed) return Unauthorized();
         return Ok();
     }
 
