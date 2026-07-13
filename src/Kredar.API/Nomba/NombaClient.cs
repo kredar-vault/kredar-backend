@@ -9,7 +9,7 @@ namespace Kredar.API.Nomba;
 public sealed record ProvisionedAccount(string AccountNumber, string BankName, string AccountName, string? ProviderId);
 public sealed record NombaTransactionRecord(string Reference, string AccountNumber, long AmountKobo, long FeeKobo, string? SenderName);
 public sealed record BankLookupResult(string AccountName, string AccountNumber, string BankCode);
-public sealed record TransferResult(bool Success, string? Reference, string? Error);
+public sealed record TransferResult(bool Success, bool IsPending, string? Reference, string? Error);
 
 public sealed class NombaClient(
     IHttpClientFactory httpClientFactory,
@@ -81,13 +81,13 @@ public sealed class NombaClient(
             var data = doc.RootElement.TryGetProperty("data", out var d) ? d : doc.RootElement;
             var reference = Str(data, "id") ?? Str(data, "transactionId") ?? Str(data, "reference") ?? merchantTxRef;
             var status = Str(data, "status") ?? "PENDING";
-            var success = status.Contains("success", StringComparison.OrdinalIgnoreCase)
-                          || status.Contains("pending", StringComparison.OrdinalIgnoreCase);
-            return new TransferResult(success, reference, success ? null : status);
+            var succeeded = status.Contains("success", StringComparison.OrdinalIgnoreCase);
+            var pending = !succeeded && status.Contains("pending", StringComparison.OrdinalIgnoreCase);
+            return new TransferResult(succeeded, pending, reference, succeeded || pending ? null : status);
         }
         catch (Exception ex)
         {
-            return new TransferResult(false, null, ex.Message);
+            return new TransferResult(false, false, null, ex.Message);
         }
     }
 
