@@ -70,7 +70,8 @@ public class InsightsService(AppDbContext db)
             .SumAsync(t => (decimal?)t.Fee, ct) ?? 0;
 
         var totalTransferred = await db.Transfers
-            .Where(t => t.TenantId == tenantId && t.Status == TransferStatus.Succeeded)
+            .Where(t => t.TenantId == tenantId &&
+                        (t.Status == TransferStatus.Succeeded || t.Status == TransferStatus.Pending))
             .SumAsync(t => (decimal?)t.Amount, ct) ?? 0;
 
         return new BalanceResponse
