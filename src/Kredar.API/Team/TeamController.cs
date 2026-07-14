@@ -1,3 +1,4 @@
+using Kredar.API.Auth.Dto;
 using Kredar.API.Common;
 using Kredar.API.Team.Dto;
 using Microsoft.AspNetCore.Authorization;
@@ -39,8 +40,8 @@ public class TeamController(TeamService teamService) : ControllerBase
     [AllowAnonymous]
     public async Task<IActionResult> AcceptInvite([FromBody] AcceptInviteRequest request)
     {
-        var member = await teamService.AcceptInviteAsync(request.Token);
-        return Ok(ApiResponse<TeamMemberResponse>.Success(member, "Invitation accepted."));
+        var auth = await teamService.AcceptInviteAsync(request);
+        return Ok(ApiResponse<AuthResponse>.Success(auth, "Invitation accepted. You are now logged in."));
     }
 
     [HttpPost("{id:guid}/resend")]

@@ -20,6 +20,9 @@ public class TeamRepository(AppDbContext db)
     public async Task<TeamMember?> FindByInviteTokenAsync(string token) =>
         await db.TeamMembers.FirstOrDefaultAsync(t => t.InviteToken == token);
 
+    public async Task<TeamMember?> FindByEmailGlobalAsync(string email) =>
+        await db.TeamMembers.FirstOrDefaultAsync(t => t.Email == email && t.Status == TeamMemberStatus.Active);
+
     public async Task AddAsync(TeamMember member)
     {
         db.TeamMembers.Add(member);
