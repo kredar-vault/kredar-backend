@@ -1,11 +1,12 @@
 using Kredar.API.Auth;
+using Kredar.API.Auth.Dto;
 using Kredar.API.Notifications;
 using Kredar.API.Team.Dto;
 using Kredar.API.Tenants;
 
 namespace Kredar.API.Team;
 
-public class TeamService(TeamRepository teamRepo, EmailService emailService, TenantRepository tenantRepo, NotificationService notif)
+public class TeamService(TeamRepository teamRepo, EmailService emailService, TenantRepository tenantRepo, NotificationService notif, JwtService jwtService)
 {
     public async Task<List<TeamMemberResponse>> GetAllAsync(Guid tenantId) =>
         (await teamRepo.GetAllAsync(tenantId)).Select(MapToResponse).ToList();
@@ -40,9 +41,12 @@ public class TeamService(TeamRepository teamRepo, EmailService emailService, Ten
         return MapToResponse(member);
     }
 
-    public async Task<TeamMemberResponse> AcceptInviteAsync(string token)
+    public async Task<AuthResponse> AcceptInviteAsync(AcceptInviteRequest request)
     {
-        var member = await teamRepo.FindByInviteTokenAsync(token)
+        if (request.Password != request.ConfirmPassword)
+            throw new InvalidOperationException("Passwords do not match.");
+
+        var member = await teamRepo.FindByInviteTokenAsync(request.Token)
             ?? throw new KeyNotFoundException("Invitation not found or already accepted.");
 
         if (member.InviteTokenExpiry < DateTime.UtcNow)
@@ -51,12 +55,23 @@ public class TeamService(TeamRepository teamRepo, EmailService emailService, Ten
         member.Status = TeamMemberStatus.Active;
         member.InviteToken = null;
         member.InviteTokenExpiry = null;
+        member.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password, workFactor: 8);
 
         await teamRepo.UpdateAsync(member);
+
+        var tenant = await tenantRepo.FindByIdAsync(member.TenantId);
         _ = notif.CreateAsync(member.TenantId, NotificationType.TeamMemberAccepted,
             "Team member joined",
             $"{member.FullName} ({member.Email}) accepted their invitation.");
-        return MapToResponse(member);
+
+        // JWT is scoped to the employer's TenantId so the team member sees the same dashboard
+        return new AuthResponse
+        {
+            Token = jwtService.GenerateToken(member.TenantId, member.Email),
+            RefreshToken = string.Empty,
+            BusinessName = tenant?.BusinessName ?? string.Empty,
+            Email = member.Email
+        };
     }
 
     public async Task<TeamMemberResponse> ResendInviteAsync(Guid tenantId, Guid id)

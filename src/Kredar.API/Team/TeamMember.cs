@@ -13,5 +13,8 @@ public class TeamMember
     public TeamMemberStatus Status { get; set; } = TeamMemberStatus.Pending;
     public string? InviteToken { get; set; }
     public DateTime? InviteTokenExpiry { get; set; }
+    public string? PasswordHash { get; set; }
+    public string? LoginOtp { get; set; }
+    public DateTime? LoginOtpExpiry { get; set; }
     public DateTime DateAdded { get; set; } = DateTime.UtcNow;
 }
