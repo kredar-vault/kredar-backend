@@ -21,13 +21,13 @@ public sealed class NombaClient(
     public async Task<ProvisionedAccount> CreateDedicatedAccountAsync(
         string accountRef, string accountName, string? email, string? phone, CancellationToken ct = default)
     {
-        if (string.IsNullOrWhiteSpace(_settings.AccountId))
-            throw new InvalidOperationException("NombaSettings.AccountId is not configured.");
+        if (string.IsNullOrWhiteSpace(_settings.SubAccountId))
+            throw new InvalidOperationException("NombaSettings.SubAccountId is not configured.");
 
         var http = httpClientFactory.CreateClient("nomba");
         var token = await tokenProvider.GetAccessTokenAsync(ct);
 
-        using var request = new HttpRequestMessage(HttpMethod.Post, $"accounts/virtual/{_settings.AccountId}")
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"accounts/virtual/{_settings.SubAccountId}")
         {
             Content = JsonContent.Create(new { accountRef, accountName, email, phoneNumber = phone }),
         };
