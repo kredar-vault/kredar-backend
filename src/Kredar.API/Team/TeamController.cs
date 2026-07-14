@@ -36,6 +36,14 @@ public class TeamController(TeamService teamService) : ControllerBase
         return Ok(ApiResponse<TeamMemberResponse>.Success(member, "Team member updated successfully."));
     }
 
+    [HttpGet("invite/validate")]
+    [AllowAnonymous]
+    public async Task<IActionResult> ValidateInvite([FromQuery] string token)
+    {
+        var valid = await teamService.ValidateInviteTokenAsync(token);
+        return Ok(ApiResponse<object>.Success(new { valid }));
+    }
+
     [HttpPost("accept")]
     [AllowAnonymous]
     public async Task<IActionResult> AcceptInvite([FromBody] AcceptInviteRequest request)

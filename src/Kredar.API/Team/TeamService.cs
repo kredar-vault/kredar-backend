@@ -41,6 +41,12 @@ public class TeamService(TeamRepository teamRepo, EmailService emailService, Ten
         return MapToResponse(member);
     }
 
+    public async Task<bool> ValidateInviteTokenAsync(string token)
+    {
+        var member = await teamRepo.FindByInviteTokenAsync(token);
+        return member != null && member.InviteTokenExpiry > DateTime.UtcNow;
+    }
+
     public async Task<AuthResponse> AcceptInviteAsync(AcceptInviteRequest request)
     {
         if (request.Password != request.ConfirmPassword)
