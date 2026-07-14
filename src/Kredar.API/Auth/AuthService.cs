@@ -1,10 +1,11 @@
 using Kredar.API.Auth.Dto;
 using Kredar.API.Notifications;
+using Kredar.API.Team;
 using Kredar.API.Tenants;
 
 namespace Kredar.API.Auth;
 
-public class AuthService(TenantRepository tenantRepo, JwtService jwtService, EmailService emailService, RefreshTokenRepository refreshTokenRepo, NotificationService notif)
+public class AuthService(TenantRepository tenantRepo, JwtService jwtService, EmailService emailService, RefreshTokenRepository refreshTokenRepo, NotificationService notif, TeamRepository teamRepo)
 {
     public async Task<RegisterResponse> RegisterAsync(RegisterRequest request)
     {
@@ -55,60 +56,102 @@ public class AuthService(TenantRepository tenantRepo, JwtService jwtService, Ema
 
     public async Task<string> LoginAsync(LoginRequest request)
     {
-        var tenant = await tenantRepo.FindByEmailAsync(request.Email)
-            ?? throw new Exception("Invalid email or password.");
+        var tenant = await tenantRepo.FindByEmailAsync(request.Email);
 
-        if (!BCrypt.Net.BCrypt.Verify(request.Password, tenant.PasswordHash))
+        if (tenant != null)
+        {
+            if (!BCrypt.Net.BCrypt.Verify(request.Password, tenant.PasswordHash))
+                throw new Exception("Invalid email or password.");
+
+            if (!tenant.IsVerified)
+                throw new Exception("Please verify your email before logging in.");
+
+            var otp = Random.Shared.Next(100000, 999999).ToString();
+            tenant.LoginOtp = otp;
+            tenant.LoginOtpExpiry = DateTime.UtcNow.AddMinutes(10);
+            await tenantRepo.UpdateAsync(tenant);
+            _ = emailService.SendLoginOtpEmailAsync(tenant.Email, otp);
+            return "A 6-digit code has been sent to your email.";
+        }
+
+        // Check if this is a team member account
+        var member = await teamRepo.FindByEmailGlobalAsync(request.Email);
+        if (member == null || member.PasswordHash == null)
             throw new Exception("Invalid email or password.");
 
-        if (!tenant.IsVerified)
-            throw new Exception("Please verify your email before logging in.");
+        if (!BCrypt.Net.BCrypt.Verify(request.Password, member.PasswordHash))
+            throw new Exception("Invalid email or password.");
 
-        var otp = Random.Shared.Next(100000, 999999).ToString();
-
-        tenant.LoginOtp = otp;
-        tenant.LoginOtpExpiry = DateTime.UtcNow.AddMinutes(10);
-        await tenantRepo.UpdateAsync(tenant);
-
-        _ = emailService.SendLoginOtpEmailAsync(tenant.Email, otp);
-
+        var memberOtp = Random.Shared.Next(100000, 999999).ToString();
+        member.LoginOtp = memberOtp;
+        member.LoginOtpExpiry = DateTime.UtcNow.AddMinutes(10);
+        await teamRepo.UpdateAsync(member);
+        _ = emailService.SendLoginOtpEmailAsync(member.Email, memberOtp);
         return "A 6-digit code has been sent to your email.";
     }
 
     public async Task<AuthResponse> VerifyLoginOtpAsync(VerifyLoginOtpRequest request)
     {
-        var tenant = await tenantRepo.FindByEmailAsync(request.Email)
+        var tenant = await tenantRepo.FindByEmailAsync(request.Email);
+
+        if (tenant != null)
+        {
+            if (tenant.LoginOtp == null || tenant.LoginOtpExpiry < DateTime.UtcNow)
+                throw new Exception("Code has expired. Please log in again.");
+
+            if (tenant.LoginOtp != request.Otp)
+                throw new Exception("Invalid code. Please try again.");
+
+            tenant.LoginOtp = null;
+            tenant.LoginOtpExpiry = null;
+            await tenantRepo.UpdateAsync(tenant);
+
+            var refreshToken = new RefreshToken
+            {
+                TenantId = tenant.Id,
+                Token = Guid.NewGuid().ToString("N"),
+                ExpiresAt = DateTime.UtcNow.AddDays(30)
+            };
+            await refreshTokenRepo.AddAsync(refreshToken);
+
+            _ = notif.CreateAsync(tenant.Id, NotificationType.Login,
+                "New login",
+                $"Successful login to your Kredar account from {request.Email}.");
+
+            return new AuthResponse
+            {
+                Token = jwtService.GenerateToken(tenant.Id, tenant.Email),
+                RefreshToken = refreshToken.Token,
+                BusinessName = tenant.BusinessName,
+                Email = tenant.Email
+            };
+        }
+
+        // Team member login — OTP stored on TeamMember, JWT scoped to employer's TenantId
+        var member = await teamRepo.FindByEmailGlobalAsync(request.Email)
             ?? throw new Exception("Invalid request.");
 
-        if (tenant.LoginOtp == null || tenant.LoginOtpExpiry < DateTime.UtcNow)
+        if (member.LoginOtp == null || member.LoginOtpExpiry < DateTime.UtcNow)
             throw new Exception("Code has expired. Please log in again.");
 
-        if (tenant.LoginOtp != request.Otp)
+        if (member.LoginOtp != request.Otp)
             throw new Exception("Invalid code. Please try again.");
 
-        tenant.LoginOtp = null;
-        tenant.LoginOtpExpiry = null;
-        await tenantRepo.UpdateAsync(tenant);
+        member.LoginOtp = null;
+        member.LoginOtpExpiry = null;
+        await teamRepo.UpdateAsync(member);
 
-        var refreshToken = new RefreshToken
-        {
-            TenantId = tenant.Id,
-            Token = Guid.NewGuid().ToString("N"),
-            ExpiresAt = DateTime.UtcNow.AddDays(30)
-        };
-
-        await refreshTokenRepo.AddAsync(refreshToken);
-
-        _ = notif.CreateAsync(tenant.Id, NotificationType.Login,
-            "New login",
-            $"Successful login to your Kredar account from {request.Email}.");
+        var employerTenant = await tenantRepo.FindByIdAsync(member.TenantId);
+        _ = notif.CreateAsync(member.TenantId, NotificationType.Login,
+            "Team member login",
+            $"{member.FullName} ({member.Email}) logged into the dashboard.");
 
         return new AuthResponse
         {
-            Token = jwtService.GenerateToken(tenant.Id, tenant.Email),
-            RefreshToken = refreshToken.Token,
-            BusinessName = tenant.BusinessName,
-            Email = tenant.Email
+            Token = jwtService.GenerateToken(member.TenantId, member.Email),
+            RefreshToken = string.Empty,
+            BusinessName = employerTenant?.BusinessName ?? string.Empty,
+            Email = member.Email
         };
     }
 
