@@ -66,6 +66,12 @@ public sealed class NombaClient(
         string merchantTxRef, decimal amountNaira, string accountNumber, string bankCode,
         string? accountName, string? narration, CancellationToken ct = default)
     {
+        // Sweep funds from the DVA sub-account into the parent account first.
+        // DVA deposits land in the sub-account; outgoing bank transfers draw
+        // from the parent account — these are separate Nomba balances.
+        if (!string.IsNullOrWhiteSpace(_settings.SubAccountId))
+            await SweepSubAccountToParentAsync(amountNaira, merchantTxRef, ct);
+
         try
         {
             using var doc = await PostAsync("transfers/bank", new
@@ -88,6 +94,27 @@ public sealed class NombaClient(
         catch (Exception ex)
         {
             return new TransferResult(false, false, null, ex.Message);
+        }
+    }
+
+    // Moves funds from the DVA sub-account into the parent account so the
+    // parent account has balance for the outgoing bank transfer.
+    private async Task SweepSubAccountToParentAsync(decimal amountNaira, string refPrefix, CancellationToken ct)
+    {
+        try
+        {
+            var sweepRef = "sweep-" + refPrefix[..Math.Min(refPrefix.Length, 20)];
+            using var doc = await PostAsync("transfers/accounts", new
+            {
+                merchantTxRef = sweepRef,
+                amount = amountNaira,
+                receivingAccountId = _settings.AccountId,
+            }, ct, accountIdOverride: _settings.SubAccountId);
+        }
+        catch
+        {
+            // Best-effort — if Nomba rejects the sweep the bank transfer will
+            // fail with INSUFFICIENT_BALANCE, which surfaces to the caller.
         }
     }
 
