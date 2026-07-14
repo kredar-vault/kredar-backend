@@ -68,10 +68,6 @@ public sealed class NombaClient(
     {
         try
         {
-            // DVA deposits land in the sub-account; debit from there so the balance is available
-            var sendingAccountId = !string.IsNullOrWhiteSpace(_settings.SubAccountId)
-                ? _settings.SubAccountId
-                : _settings.AccountId;
             using var doc = await PostAsync("transfers/bank", new
             {
                 merchantTxRef,
@@ -81,7 +77,7 @@ public sealed class NombaClient(
                 bankCode,
                 narration = narration ?? "Kredar payout",
                 senderName = "Kredar",
-            }, ct, sendingAccountId);
+            }, ct);
             var data = doc.RootElement.TryGetProperty("data", out var d) ? d : doc.RootElement;
             var reference = Str(data, "id") ?? Str(data, "transactionId") ?? Str(data, "reference") ?? merchantTxRef;
             var status = Str(data, "status") ?? "PENDING";
