@@ -68,6 +68,10 @@ public sealed class NombaClient(
     {
         try
         {
+            // DVA deposits land in the sub-account; debit from there so the balance is available
+            var sendingAccountId = !string.IsNullOrWhiteSpace(_settings.SubAccountId)
+                ? _settings.SubAccountId
+                : _settings.AccountId;
             using var doc = await PostAsync("transfers/bank", new
             {
                 merchantTxRef,
@@ -77,7 +81,7 @@ public sealed class NombaClient(
                 bankCode,
                 narration = narration ?? "Kredar payout",
                 senderName = "Kredar",
-            }, ct);
+            }, ct, sendingAccountId);
             var data = doc.RootElement.TryGetProperty("data", out var d) ? d : doc.RootElement;
             var reference = Str(data, "id") ?? Str(data, "transactionId") ?? Str(data, "reference") ?? merchantTxRef;
             var status = Str(data, "status") ?? "PENDING";
@@ -147,14 +151,15 @@ public sealed class NombaClient(
         return results;
     }
 
-    private async Task<JsonDocument> PostAsync(string path, object body, CancellationToken ct)
+    private async Task<JsonDocument> PostAsync(string path, object body, CancellationToken ct, string? accountIdOverride = null)
     {
         var http = httpClientFactory.CreateClient("nomba");
         var token = await tokenProvider.GetAccessTokenAsync(ct);
         using var request = new HttpRequestMessage(HttpMethod.Post, path) { Content = JsonContent.Create(body) };
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        if (!string.IsNullOrWhiteSpace(_settings.AccountId))
-            request.Headers.TryAddWithoutValidation("accountId", _settings.AccountId);
+        var accountId = accountIdOverride ?? _settings.AccountId;
+        if (!string.IsNullOrWhiteSpace(accountId))
+            request.Headers.TryAddWithoutValidation("accountId", accountId);
         using var response = await http.SendAsync(request, ct);
         var raw = await response.Content.ReadAsStringAsync(ct);
         if (!response.IsSuccessStatusCode)
